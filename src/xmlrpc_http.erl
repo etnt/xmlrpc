@@ -65,8 +65,8 @@ parse_request(Socket, Timeout) ->
 		["POST", _, "HTTP/1.1"] ->
 		    ?DEBUG_LOG({http_version, "1.1"}),
 		    parse_header(Socket, Timeout);
-		[Method, _, "HTTP/1.1"] -> {status, 501};
-		["POST", _, HTTPVersion] -> {status, 505};
+		[_Method, _, "HTTP/1.1"] -> {status, 501};
+		["POST", _, _HTTPVersion] -> {status, 505};
 		_ -> {status, 400}
 	    end;
 	{error, Reason} -> {error, Reason}
@@ -88,7 +88,7 @@ parse_header(Socket, Timeout, Header) ->
 		{[$C,$o,$n,$t,$e,$n,$t,$-,_,$e,$n,$g,$t,$h,$:],
 		 ContentLength} ->
 		    case catch list_to_integer(ContentLength) of
-			N ->
+			N when integer(N) ->
 			    parse_header(Socket, Timeout,
 					 Header#header{content_length = N});
 			_ -> {status, 400}
@@ -96,7 +96,7 @@ parse_header(Socket, Timeout, Header) ->
 		{"Content-Type:", "text/xml"} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{content_type = "text/xml"});
-		{"Content-Type:", ContentType} -> {status, 415};
+		{"Content-Type:", _ContentType} -> {status, 415};
 		{"User-Agent:", UserAgent} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{user_agent = UserAgent});
@@ -162,7 +162,7 @@ eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload) ->
 	    handler(Socket, Timeout, Handler, State);
 	{false, ResponsePayload} ->
 	    encode_send(Socket, 200, "Connection: close\r\n", ResponsePayload);
-	{true, NewTimeout, NewState, ResponsePayload} when
+	{true, _NewTimeout, _NewState, ResponsePayload} when
 	      Connection == close ->
 	    encode_send(Socket, 200, "Connection: close\r\n", ResponsePayload);
 	{true, NewTimeout, NewState, ResponsePayload} ->

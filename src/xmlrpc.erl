@@ -69,7 +69,8 @@ call(Socket, URI, Payload, KeepAlive, Timeout) ->
 		{error, Reason} when KeepAlive == false ->
 		    gen_tcp:close(Socket),
 		    {error, Reason};
-		{error, Reason} -> {error, Socket, Reason}
+		{error, Reason} ->
+		    {error, Socket, Reason}
 	    end;
 	{error, Reason} when KeepAlive == false ->
 	    gen_tcp:close(Socket),
@@ -110,7 +111,7 @@ parse_header(Socket, Timeout, Header) ->
 	    case string:tokens(HeaderField, " \r\n") of
 		["Content-Length:", ContentLength] ->
 		    case catch list_to_integer(ContentLength) of
-			Value ->
+			Value when integer(Value) ->
 			    parse_header(Socket, Timeout,
 					 Header#header{content_length =
 						       Value});

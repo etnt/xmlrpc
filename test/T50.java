@@ -14,9 +14,9 @@ public class T50 {
 	    h.put("bar", new Double(45.5));
 	    h.put("baz", new Integer(4711));
 	    params.add(h);
-	    Object response = xmlrpc.execute("echo", params);
-	    System.out.println(response.toString());
-	    response = xmlrpc.execute("foo", new Vector());
+	    //Object response = xmlrpc.execute("echo", params);
+	    //System.out.println(response.toString());
+	    Object response = xmlrpc.execute("foo", new Vector());
 	    System.out.println(response.toString());
 	} catch (Exception e) {
 	    System.err.println(e);
