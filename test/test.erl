@@ -8,8 +8,8 @@ all() ->
     t20(),
     t30(),
     t40(),
-    %%t50(), xmerl_scan:string/1 returns bad_character_code. broken.
-    %%t60(), xmerl_scan:string/1 returns bad_character_code. broken.
+    %%t50(), %% xmerl_scan:string/1 returns bad_character_code. broken.
+    %%t60(), %% xmerl_scan:string/1 returns bad_character_code. broken.
     t100().
 
 %% Test: Call external XML-RPC servers
