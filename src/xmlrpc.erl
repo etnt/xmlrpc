@@ -40,11 +40,12 @@
 
 %% Exported: call/{3,4,5,6}
 
-call(Host, Port, URI, Payload) -> call(Host, Port, URI, Payload, false, 60000).
+call(Host, Port, URI, Payload) ->
+    call(Host, Port, URI, Payload, false, 60000).
 
 call(Host, Port, URI, Payload, KeepAlive, Timeout) ->
     case gen_tcp:connect(Host, Port, [{active, false}]) of
-	{ok, Socket} -> call(Socket, URI, Payload, KeepAlive, Timeout);
+	{ok, Socket} -> call(Socket, {Host,URI}, Payload, KeepAlive, Timeout);
 	{error, Reason} when KeepAlive == false -> {error, Reason};
 	{error, Reason} -> {error, undefined, Reason}
     end.
@@ -81,13 +82,24 @@ call(Socket, URI, Payload, KeepAlive, Timeout) ->
 send(Socket, URI, false, Payload) ->
     send(Socket, URI, "Connection: close\r\n", Payload);
 send(Socket, URI, true, Payload) -> send(Socket, URI, "", Payload);
-send(Socket, URI, Header, Payload) ->
+send(Socket, {Host,URI}, Header, Payload) ->
     Request =
 	["POST ", URI, " HTTP/1.1\r\n",
 	 "Content-Length: ", integer_to_list(lists:flatlength(Payload)),
 	 "\r\n",
 	 "User-Agent: Erlang XML-RPC Client 1.13\r\n",
 	 "Content-Type: text/xml\r\n",
+	 "Host: ", Host, "\r\n",
+	 Header, "\r\n",
+	 Payload],
+    gen_tcp:send(Socket, Request);
+send(Socket, URI, Header, Payload) ->
+    Request =
+	["POST ", URI, " HTTP/1.1\r\n",
+	 "Content-Length: ", integer_to_list(lists:flatlength(Payload)),
+	 "\r\n",
+	 "User-Agent: Erlang XML-RPC Client 1.13\r\n",
+	 "Content-Type: text/XML\r\n",
 	 Header, "\r\n",
 	 Payload],
     gen_tcp:send(Socket, Request).
