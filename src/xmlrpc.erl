@@ -181,7 +181,8 @@ get_payload(Socket, Timeout, ContentLength) ->
 
 %% Exported: start_link/{1,5,6}
 
-start_link(Handler) -> start_link(4567, 1000, 60000, Handler, undefined).
+start_link(Handler) ->
+    start_link(4567, 1000, 60000, Handler, undefined).
 
 start_link(Port, MaxSessions, Timeout, Handler, State) ->
     start_link(all, Port, MaxSessions, Timeout, Handler, State).

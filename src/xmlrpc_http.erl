@@ -93,9 +93,9 @@ parse_header(Socket, Timeout, Header) ->
 					 Header#header{content_length = N});
 			_ -> {status, 400}
 			  end;
-		{"Content-Type:", "text/xml"} ->
+		{"Content-Type:", Type="text/xml"++_} ->
 		    parse_header(Socket, Timeout,
-				 Header#header{content_type = "text/xml"});
+				 Header#header{content_type = Type});
 		{"Content-Type:", _ContentType} -> {status, 415};
 		{"User-Agent:", UserAgent} ->
 		    parse_header(Socket, Timeout,
@@ -116,7 +116,8 @@ parse_header(Socket, Timeout, Header) ->
 split_header_field(HeaderField) -> split_header_field(HeaderField, []).
 
 split_header_field([], Name) -> {Name, ""};
-split_header_field([$ |Rest], Name) -> {lists:reverse(Name), Rest -- "\r\n"};
+split_header_field([$ |Rest], Name) -> {lists:reverse(Name),
+					lowercase(Rest) -- "\r\n"};
 split_header_field([C|Rest], Name) -> split_header_field(Rest, [C|Name]).
 
 handle_payload(Socket, Timeout, Handler, State,
@@ -205,3 +206,71 @@ reason_phrase(415) -> "Unsupported Media Type";
 reason_phrase(500) -> "Internal Server Error";
 reason_phrase(501) -> "Not Implemented";
 reason_phrase(505) -> "HTTP Version not supported".
+
+lowercase(Str) ->
+    [lowercase_ch(S) || S <- Str].
+
+lowercase_ch(C) when C>=$A, C=<$Z -> C + 32;
+lowercase_ch(C) -> C.
+
+% convert_to_latin1(Content, Type, State) ->
+%     case get_encoding(Type) of
+% 	"utf-8" ->
+% 	    io:format("Converting ~p\n", [Content]),
+% 	    L1 = iconv(State#state.iconv_utf8, Content, []),
+% 	    io:format("into ~p\n", [L1]),
+% 	    L1;
+% 	_ ->
+% 	    Content
+%     end.
+% 
+% 
+% get_encoding(Type) ->
+%     KeyVal = string:tokens(Type, ";"),
+%     Opts = [opts(X) || X <- KeyVal],
+%     case lists:keysearch("charset",1,Opts) of
+% 	{value, {_,Enc}} ->
+% 	    Enc;
+% 	_ ->
+% 	    "latin1"
+%     end.
+% 
+% opts(X) ->
+%     case string:tokens(X,"=") of
+% 	[K,V|_] ->
+% 	    {string:strip(K),string:strip(V)};
+% 	[K|_] ->
+% 	    {string:strip(K),[]}
+%     end.
+% 
+% 
+% 
+% iconv(Cd, Content, Acc) when length(Content) > 512 ->
+%     {Head,Rest} = split_at_pos(512, Content, []),
+%     case iconv:conv(Cd, Head) of
+% 	{ok, Latin1} ->
+% 	    iconv(Cd, Rest, [b2l(Latin1)|Acc]);
+% 	_Error ->
+% 	    io:format("iconv error ~p\n", [_Error]),
+% 	    iconv(Cd, Rest, [Head|Acc])
+%     end;
+% iconv(Cd, Content, Acc) ->
+%     case iconv:conv(Cd, Content) of
+% 	{ok, Latin1Bin} ->
+% 	    lists:flatten(lists:reverse(Acc,b2l(Latin1Bin)));
+% 	_Error ->
+% 	    io:format("iconv error ~p\n", [_Error]),
+% 	    lists:flatten(lists:reverse(Acc,Content))
+%     end.
+% 
+% 
+% split_at_pos(0, Rest, Acc) ->
+%     {lists:reverse(Acc), Rest};
+% split_at_pos(N, [C|Rest], Acc) ->
+%     split_at_pos(N-1, Rest, [C|Acc]);
+% split_at_pos(_, [], Acc) ->
+%     {lists:reverse(Acc), []}.
+% 
+% 
+% b2l(X) ->
+%     binary_to_list(X).
