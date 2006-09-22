@@ -96,6 +96,9 @@ parse_header(Socket, Timeout, Header) ->
 		{"Content-Type:", "text/xml"} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{content_type = "text/xml"});
+		{"Content-Type:", "text/xml; charset=utf-8"} ->
+		    parse_header(Socket, Timeout,
+				 Header#header{content_type = "text/xml; charset=utf-8"});
 		{"Content-Type:", ContentType} -> {status, 415};
 		{"User-Agent:", UserAgent} ->
 		    parse_header(Socket, Timeout,
@@ -193,6 +196,7 @@ send(Socket, StatusCode, ExtraHeader, Payload) ->
 	 "Content-Length: ", integer_to_list(lists:flatlength(Payload)),
 	 "\r\n",
 	 "Server: Erlang/1.13\r\n",
+	 "Content-Type: text/xml\r\n",
 	 ExtraHeader, "\r\n",
 	 Payload],
     gen_tcp:send(Socket, Response).
@@ -200,7 +204,7 @@ send(Socket, StatusCode, ExtraHeader, Payload) ->
 reason_phrase(200) -> "OK";
 reason_phrase(400) -> "Bad Request";
 reason_phrase(411) -> "Length required";
-reason_phrase(415) -> "Unsupported Media Type";     
+reason_phrase(415) -> "Unsupported Media Type";
 reason_phrase(500) -> "Internal Server Error";
 reason_phrase(501) -> "Not Implemented";
 reason_phrase(505) -> "HTTP Version not supported".

@@ -110,11 +110,12 @@ parse_header(Socket, Timeout, Header) ->
 	    case string:tokens(HeaderField, " \r\n") of
 		["Content-Length:", ContentLength] ->
 		    case catch list_to_integer(ContentLength) of
+			badarg -> 
+				{error, {invalid_content_length, ContentLength}};
 			Value ->
 			    parse_header(Socket, Timeout,
 					 Header#header{content_length =
-						       Value});
-			_ -> {error, {invalid_content_length, ContentLength}}
+						       Value})
 		    end;
 		["Connection:", "close"] ->
 		    parse_header(Socket, Timeout,
@@ -174,12 +175,12 @@ start_link(Port, MaxSessions, Timeout, Handler, State) ->
     start_link(all, Port, MaxSessions, Timeout, Handler, State).
 
 start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
-    OptionList = [{active, false}, {reuseaddr, true}|ip(IP)],
+    OptionList = [{active, false}, {reuseaddr, true}] ++ ip(IP),
     SessionHandler = {xmlrpc_http, handler, [Timeout, Handler, State]}, 
     tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
 
 ip(all) -> [];
-ip(IP) when tuple(IP) -> {ip, IP}.
+ip(IP) when tuple(IP) -> [{ip, IP}].
 
 %% Exported: stop/1
 
