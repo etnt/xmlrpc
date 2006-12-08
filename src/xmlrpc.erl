@@ -31,6 +31,12 @@
 
 -export([ssl_call/3, ssl_call/4, ssl_call/5, ssl_call/6]).
 
+-export([cbs_new/0, cbs_record/1,
+	 cbs_ip/1, cbs_ip/2, 
+	 cbs_port/1, cbs_port/2, 
+	 cbs_opaque/1, cbs_opaque/2
+	]).
+
 
 -include("log.hrl").
 
@@ -40,6 +46,38 @@
 	  %% close | undefined
 	  connection
 	 }).
+
+%%% This record can be used by the client to be able to
+%%% retrieve internal info (such as Ip,Port) and at the
+%%% same time preserve the clients own state (opaque).
+%%% NB: No include file is provided, use the access functions!
+-record(cback_state, {
+	  ip,
+	  port,
+	  opaque
+	 }).
+
+cbs_record(C) when record(C, cback_state) -> true;
+cbs_record(_)                             -> false.
+
+cbs_new() -> 
+    #cback_state{}.
+
+cbs_ip(C) when record(C, cback_state) -> 
+    C#cback_state.ip.
+cbs_ip(C, Ip) when record(C, cback_state) -> 
+    C#cback_state{ip = Ip}.
+
+cbs_port(C) when record(C, cback_state) -> 
+    C#cback_state.port.
+cbs_port(C, Port) when record(C, cback_state) -> 
+    C#cback_state{port = Port}.
+
+cbs_opaque(C) when record(C, cback_state) -> 
+    C#cback_state.opaque.
+cbs_opaque(C, Opaque) when record(C, cback_state) -> 
+    C#cback_state{opaque = Opaque}.
+
 
 %%%
 %%% Quick and dirty solution for adding SSL support.

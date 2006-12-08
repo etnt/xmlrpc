@@ -43,7 +43,8 @@
 
 %% Exported: handler/3
 
-handler(Socket, Timeout, Handler, State) ->
+handler(Socket, Timeout, Handler, State0) ->
+    State = add_peer_info(Socket, State0),
     case parse_request(Socket, Timeout) of
 	{ok, Header} ->
 	    ?DEBUG_LOG({header, Header}),
@@ -71,6 +72,26 @@ parse_request(Socket, Timeout) ->
 	    end;
 	{error, Reason} -> {error, Reason}
     end.
+
+%%% Add the peer Ip/Port info if possible.
+add_peer_info(Socket, State) ->
+    case xmlrpc:cbs_record(State) of
+	true ->
+	    case catch inet:peername(Socket) of
+		{ok, {Ip, Port}} ->
+		    xmlrpc:cbs_port(xmlrpc:cbs_ip(State, Ip), Port);
+		_ ->
+		    case catch ssl:peername(Socket) of
+			{ok, {Ip, Port}} ->
+			    xmlrpc:cbs_port(xmlrpc:cbs_ip(State, Ip), Port);
+			_ ->
+			    State
+		    end
+	    end;
+	_ ->
+	    State
+    end.
+
 
 parse_header(Socket, Timeout) -> parse_header(Socket, Timeout, #header{}).
 
