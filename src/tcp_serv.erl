@@ -27,11 +27,20 @@
 -module(tcp_serv).
 -vsn("1.13").
 -author('jocke@gleipnir.com').
--export([start_link/1, start_link/2, stop/1, stop/2]).
+-export([start_link/1, start_link/2, 
+         start/1, start/2, 
+         stop/1, stop/2]).
 -export([init/2, start_session/3]).
 -export([system_continue/3, system_terminate/4]).
 
 -include("log.hrl").
+
+-ifdef(debug).
+-define(dbg(X,Y), error_logger:info_msg("*dbg ~p(~p): " X,
+					[?MODULE, ?LINE | Y])).
+-else.
+-define(dbg(X,Y), ok).
+-endif.
 
 -record(state, {
 	  %% int()
@@ -62,6 +71,16 @@ start_link(Args, Timeout) ->
     after Timeout -> {error, timeout}
     end.
 
+start(Args) -> start(Args, 60000).
+    
+start(Args, Timeout) ->
+    Pid = proc_lib:spawn(?MODULE, init, [self(), Args]),
+    receive
+	{Pid, started} -> {ok, Pid};
+	{Pid, Reason} -> {error, Reason}
+    after Timeout -> {error, timeout}
+    end.
+
 %% Exported: stop/{1,2}
 
 stop(Pid) -> stop(Pid, 15000).
@@ -78,8 +97,10 @@ stop(Pid, Timeout) ->
 
 init(Parent, [Port, MaxSessions, OptionList, SessionHandler]) ->
     process_flag(trap_exit, true),
+    ?dbg("~p init Port=~p, SessionHandler=~p~n", [self(),Port,SessionHandler]),
     case gen_tcp:listen(Port, OptionList) of
 	{ok, ListenSocket} ->
+            ?dbg("~p init Port=~p got ListenSocket~n", [self(),Port]),
 	    self() ! start_session,
 	    Parent ! {self(), started},
 	    loop(#state{max_sessions = MaxSessions,
@@ -97,17 +118,21 @@ loop(#state{session_list = SessionList, listen_socket = ListenSocket,
 	    cleanup(State),
 	    From ! {self(), ok};
 	start_session when length(SessionList) > State#state.max_sessions ->
+            ?dbg("~p init got start_session 1~n", [self()]),
 	    timer:sleep(5000),
 	    self() ! start_session,
 	    loop(State);
 	start_session ->
+            ?dbg("~p init got start_session 2~n", [self()]),
 	    A = [self(), State#state.session_handler, ListenSocket],
 	    Pid = proc_lib:spawn_link(?MODULE, start_session, A),
 	    loop(State#state{session_list = [Pid|SessionList]});
         {'EXIT', Parent, Reason} ->
+            ?dbg("~p loop error Reason=~p~n", [self(),Reason]),
 	    cleanup(State),
             exit(Reason);
 	{'EXIT', Pid, Reason} ->
+            ?dbg("~p loop error Reason=~p~n", [self(),Reason]),
 	    case lists:member(Pid, SessionList) of
 		true ->
 		    PurgedSessionList = lists:delete(Pid, SessionList),
@@ -126,11 +151,13 @@ loop(#state{session_list = SessionList, listen_socket = ListenSocket,
 
 cleanup(State) -> gen_tcp:close(State#state.listen_socket).
 
-%% Exported: start_seesion/3
+%% Exported: start_session/3
 
-start_session(Parent, {M, F, A}, ListenSocket) ->
+start_session(Parent, {M, F, A} = _MFA, ListenSocket) ->
+    ?dbg("~p start_session BEFORE ACCEPT MFA=~p~n", [self(),_MFA]),
     case gen_tcp:accept(ListenSocket) of
 	{ok, Socket} ->
+            ?dbg("~p start_session ACCEPT Socket=~p~n", [self(),Socket]),
 	    Parent ! start_session,
 	    case apply(M, F, [Socket|A]) of
 		ok -> gen_tcp:close(Socket);
@@ -140,6 +167,7 @@ start_session(Parent, {M, F, A}, ListenSocket) ->
 		    gen_tcp:close(Socket)
 	    end;
 	{error, _Reason} ->
+            ?dbg("~p start_session ERROR Reason=~p~n", [self(),_Reason]),
 	    timer:sleep(5000),
 	    Parent ! start_session
     end.
