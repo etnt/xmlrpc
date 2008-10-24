@@ -199,7 +199,7 @@ make_double(Double) ->
 	    case catch list_to_integer(Double) of
 		{'EXIT', _} ->
 		    throw({error, {not_double, Double}});
-		Value -> Value/1.0
+		Value -> float(Value)
 	    end;
 	Value -> Value
     end.
