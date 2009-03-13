@@ -109,7 +109,7 @@ parse_header(Socket, Timeout, Header) ->
 		{[$C,$o,$n,$t,$e,$n,$t,$-,_,$e,$n,$g,$t,$h,$:],
 		 ContentLength} ->
 		    case catch list_to_integer(ContentLength) of
-			N when integer(N) ->
+			N when is_integer(N) ->
 			    parse_header(Socket, Timeout,
 					 Header#header{content_length = N});
 			_ -> {status, 400}

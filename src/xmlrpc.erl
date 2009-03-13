@@ -57,25 +57,25 @@
 	  opaque
 	 }).
 
-cbs_record(C) when record(C, cback_state) -> true;
-cbs_record(_)                             -> false.
+cbs_record(#cback_state{}) -> true;
+cbs_record(_)              -> false.
 
 cbs_new() -> 
     #cback_state{}.
 
-cbs_ip(C) when record(C, cback_state) -> 
+cbs_ip(#cback_state{}=C) ->
     C#cback_state.ip.
-cbs_ip(C, Ip) when record(C, cback_state) -> 
+cbs_ip(#cback_state{}=C, Ip) ->
     C#cback_state{ip = Ip}.
 
-cbs_port(C) when record(C, cback_state) -> 
+cbs_port(#cback_state{}=C) ->
     C#cback_state.port.
-cbs_port(C, Port) when record(C, cback_state) -> 
+cbs_port(#cback_state{}=C, Port) ->
     C#cback_state{port = Port}.
 
-cbs_opaque(C) when record(C, cback_state) -> 
+cbs_opaque(#cback_state{}=C) ->
     C#cback_state.opaque.
-cbs_opaque(C, Opaque) when record(C, cback_state) -> 
+cbs_opaque(#cback_state{}=C, Opaque) ->
     C#cback_state{opaque = Opaque}.
 
 
@@ -186,7 +186,7 @@ parse_header(Socket, Timeout, Header) ->
 	    case string:tokens(HeaderField, " \r\n") of
 		["Content-Length:", ContentLength] ->
 		    case catch list_to_integer(ContentLength) of
-			Value when integer(Value) ->
+			Value when is_integer(Value) ->
 			    parse_header(Socket, Timeout,
 					 Header#header{content_length =
 						       Value});
@@ -256,7 +256,7 @@ start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
     tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
 
 ip(all) -> [];
-ip(IP) when tuple(IP) -> [{ip, IP}].
+ip(IP) when is_tuple(IP) -> [{ip, IP}].
 
 %% Exported: stop/1
 

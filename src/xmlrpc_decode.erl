@@ -41,8 +41,7 @@ payload(Payload) ->
 	    end
     end.
 
-decode_element(#xmlElement{name = methodCall} = MethodCall)
-  when record(MethodCall, xmlElement) ->
+decode_element(#xmlElement{name = methodCall} = MethodCall) ->
     {MethodName, Rest} =
 	match_element([methodName], MethodCall#xmlElement.content),
     TextValue = get_text_value(MethodName#xmlElement.content),
@@ -53,14 +52,13 @@ decode_element(#xmlElement{name = methodCall} = MethodCall)
 	    DecodedParams = decode_params(Params#xmlElement.content),
 	    {ok, {call, list_to_atom(TextValue), DecodedParams}}
     end;
-decode_element(#xmlElement{name = methodResponse} = MethodResponse)
-  when record(MethodResponse, xmlElement) ->
+decode_element(#xmlElement{name = methodResponse} = MethodResponse) ->
     case match_element([fault, params], MethodResponse#xmlElement.content) of
 	{Fault, _} when Fault#xmlElement.name == fault ->
 	    {Value, _} = match_element([value], Fault#xmlElement.content),
 	    case decode(Value#xmlElement.content) of
 		{struct, [{faultCode, Code},
-			  {faultString, String}]} when integer(Code) ->
+			  {faultString, String}]} when is_integer(Code) ->
 		    case xmlrpc_util:is_string(String) of
 			yes -> {ok, {response, {fault, Code, String}}};
 			no -> {error, {bad_string, String}}
@@ -80,12 +78,12 @@ match_element(NameList, Content) -> match_element(throw, NameList, Content).
 
 match_element(Type, NameList, []) ->
     return(Type, {error, {missing_element, NameList}});
-match_element(Type, NameList, [E|Rest]) when record(E, xmlElement) ->
+match_element(Type, NameList, [#xmlElement{}=E|Rest]) ->
     case lists:member(E#xmlElement.name, NameList) of
 	true -> {E, Rest};
 	false -> return(Type, {error, {unexpected_element, E#xmlElement.name}})
     end;
-match_element(Type, NameList, [T|Rest]) when record(T, xmlText) ->
+match_element(Type, NameList, [#xmlText{}=T|Rest]) ->
     case only_whitespace(T#xmlText.value) of
 	yes -> match_element(Type, NameList, Rest);
 	no ->
@@ -102,7 +100,7 @@ only_whitespace([$\t|Rest]) -> only_whitespace(Rest);
 only_whitespace(_) -> no.
 
 get_text_value([]) -> [];
-get_text_value([T|Rest]) when record(T, xmlText) ->
+get_text_value([#xmlText{}=T|Rest]) ->
     T#xmlText.value++get_text_value(Rest);
 get_text_value(_) -> throw({error, missing_text}).
 
@@ -115,12 +113,12 @@ decode_params(Content) ->
 	    [decode(Value#xmlElement.content)|decode_params(Rest)]
     end.
 
-decode(Content) when list(Content) ->
+decode(Content) when is_list(Content) ->
     case get_value(Content) of
 	{text_value, TextValue} -> TextValue;
 	E -> decode(E)
     end;
-decode(String) when record(String, xmlText) -> String#xmlText.value;
+decode(#xmlText{}=String) -> String#xmlText.value;
 decode(Struct) when Struct#xmlElement.name == struct ->
     {struct, decode_members(Struct#xmlElement.content)};
 decode(Array) when Array#xmlElement.name == array ->
@@ -157,12 +155,12 @@ get_value(Content) ->
     end.
 
 any_element([]) -> false;
-any_element([E|_]) when record(E, xmlElement) -> true;
+any_element([#xmlElement{}|_]) -> true;
 any_element([_|Rest]) -> any_element(Rest).
 
 get_element([]) -> throw({error, missing_element});
-get_element([E|_]) when record(E, xmlElement) -> E;
-get_element([T|Rest]) when record(T, xmlText) ->
+get_element([#xmlElement{}=E|_]) -> E;
+get_element([#xmlText{}=T|Rest]) ->
     case only_whitespace(T#xmlText.value) of
 	yes -> get_element(Rest);
 	no -> throw({error, {unexpected_text, T#xmlText.value}})
