@@ -65,8 +65,8 @@ parse_request(Socket, Timeout) ->
 		["POST", _, "HTTP/1.1"] ->
 		    ?DEBUG_LOG({http_version, "1.1"}),
 		    parse_header(Socket, Timeout);
-		[Method, _, "HTTP/1.1"] -> {status, 501};
-		["POST", _, HTTPVersion] -> {status, 505};
+		[_UnknownMethod, _, "HTTP/1.1"] -> {status, 501};
+		["POST", _, _UnknownVersion] -> {status, 505};
 		_ -> {status, 400}
 	    end;
 	{error, Reason} -> {error, Reason}
@@ -84,26 +84,26 @@ parse_header(Socket, Timeout, Header) ->
 	    {status, 400};
 	{ok, "\r\n"} -> {ok, Header};
 	{ok, HeaderField} ->
-	    case split_header_field(HeaderField) of
-		{[$C,$o,$n,$t,$e,$n,$t,$-,_,$e,$n,$g,$t,$h,$:],
-		 ContentLength} ->
-		    case catch list_to_integer(ContentLength) of
-			N ->
+	    case string:to_lower(split_header_field(HeaderField)) of
+		{"content-length:", ContentLength} ->
+		    try
+				N = list_to_integer(ContentLength),
 			    parse_header(Socket, Timeout,
-					 Header#header{content_length = N});
-			_ -> {status, 400}
-			  end;
-		{"Content-Type:", "text/xml"} ->
+					 Header#header{content_length = N})
+			catch
+				_ -> {status, 400}
+			end;
+		{"content-type:", "text/xml"} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{content_type = "text/xml"});
-		{"Content-Type:", ContentType} -> {status, 415};
-		{"User-Agent:", UserAgent} ->
+		{"content-type:", _UnknownContentType} -> {status, 415};
+		{"user-agent:", UserAgent} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{user_agent = UserAgent});
-		{"Connection:", "close"} ->
+		{"connection:", "close"} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = close});
-		{"Connection:", [_,$e,$e,$p,$-,_,$l,$i,$v,$e]} ->
+		{"connection:", [_,$e,$e,$p,$-,_,$l,$i,$v,$e]} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = undefined});
 		_ ->
@@ -162,7 +162,7 @@ eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload) ->
 	    handler(Socket, Timeout, Handler, State);
 	{false, ResponsePayload} ->
 	    encode_send(Socket, 200, "Connection: close\r\n", ResponsePayload);
-	{true, NewTimeout, NewState, ResponsePayload} when
+	{true, _NewTimeout, _NewState, ResponsePayload} when
 	      Connection == close ->
 	    encode_send(Socket, 200, "Connection: close\r\n", ResponsePayload);
 	{true, NewTimeout, NewState, ResponsePayload} ->

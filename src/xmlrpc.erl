@@ -102,21 +102,21 @@ parse_response(Socket, Timeout) ->
 parse_header(Socket, Timeout) -> parse_header(Socket, Timeout, #header{}).
 
 parse_header(Socket, Timeout, Header) ->
-    case gen_tcp:recv(Socket, 0, Timeout) of
+	case gen_tcp:recv(Socket, 0, Timeout) of
 	{ok, "\r\n"} when Header#header.content_length == undefined ->
 	    {error, missing_content_length};
 	{ok, "\r\n"} -> {ok, Header};
 	{ok, HeaderField} ->
-	    case string:tokens(HeaderField, " \r\n") of
-		["Content-Length:", ContentLength] ->
-		    case catch list_to_integer(ContentLength) of
-			Value ->
+	    case string:tokens(string:to_lower(HeaderField), " \r\n") of
+		["content-length:", ContentLength] ->
+			try
+				Value = list_to_integer(ContentLength),
 			    parse_header(Socket, Timeout,
-					 Header#header{content_length =
-						       Value});
-			_ -> {error, {invalid_content_length, ContentLength}}
+					 Header#header{content_length = Value})
+		    catch
+				_ -> {error, {invalid_content_length, ContentLength}}
 		    end;
-		["Connection:", "close"] ->
+		["connection:", "close"] ->
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = close});
 		_ ->
@@ -179,7 +179,7 @@ start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
     tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
 
 ip(all) -> [];
-ip(IP) when tuple(IP) -> {ip, IP}.
+ip(IP) when is_tuple(IP) -> {ip, IP}.
 
 %% Exported: stop/1
 

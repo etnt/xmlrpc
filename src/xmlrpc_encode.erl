@@ -30,7 +30,7 @@
 
 %% Exported: payload/1
 
-payload({call, Name, Params}) when atom(Name), list(Params) ->
+payload({call, Name, Params}) when is_atom(Name), is_list(Params) ->
     case encode_params(Params) of
 	{error, Reason} -> {error, Reason};
 	EncodedParams ->
@@ -40,7 +40,7 @@ payload({call, Name, Params}) when atom(Name), list(Params) ->
 		 "</methodCall>"],
 	    {ok, EncodedPayload}
     end;
-payload({response, {fault, Code, String}}) when integer(Code) ->
+payload({response, {fault, Code, String}}) when is_integer(Code) ->
     case xmlrpc_util:is_string(String) of
 	yes ->
 	    EncodedPayload =
@@ -81,16 +81,16 @@ encode({struct, Struct}) ->
 	{error, Reason} -> {error, Reason};
 	Members -> ["<struct>", Members, "</struct>"]
     end;
-encode({array, Array}) when list(Array) ->
+encode({array, Array}) when is_list(Array) ->
     case encode_values(Array)of
 	{error, Reason} -> {error, Reason};
 	Values -> ["<array><data>", Values, "</data></array>"]
     end;
-encode(Integer) when integer(Integer) ->
+encode(Integer) when is_integer(Integer) ->
     ["<int>", integer_to_list(Integer), "</int>"];
 encode(true) -> "<boolean>1</boolean>"; % duh!
 encode(false) -> "<boolean>0</boolean>"; % duh!
-encode(Double) when float(Double) ->
+encode(Double) when is_float(Double) ->
     ["<double>", io_lib:format("~p", [Double]), "</double>"];
 encode({date, Date}) ->
     case xmlrpc_util:is_iso8601_date(Date) of
@@ -117,7 +117,7 @@ escape_string([C|Rest]) -> [C|escape_string(Rest)].
 encode_members(Struct) -> encode_members(Struct, []).
 
 encode_members([], Acc) -> Acc;
-encode_members([{Name, Value}|Rest], Acc) when atom(Name) ->
+encode_members([{Name, Value}|Rest], Acc) when is_atom(Name) ->
     case encode(Value) of
 	{error, Reason} -> {error, Reason};
 	EncodedValue ->
@@ -126,8 +126,8 @@ encode_members([{Name, Value}|Rest], Acc) when atom(Name) ->
 		      EncodedValue, "</value></member>"],
 	    encode_members(Rest, NewAcc)
     end;
-encode_members([{Name, Value}|Rest], Acc) -> {error, {invalid_name, Name}};
-encode_members(UnknownMember, Acc) ->
+encode_members([{Name, _Value}|_Rest], _Acc) -> {error, {invalid_name, Name}};
+encode_members(UnknownMember, _Acc) ->
     {error, {unknown_member, UnknownMember}}.
 
 encode_values(Array) -> encode_values(Array, []).
@@ -140,6 +140,5 @@ encode_values([Value|Rest], Acc) ->
 	    NewAcc = Acc++["<value>", EncodedValue, "</value>"],
 	    encode_values(Rest, NewAcc)
     end;
-encode_values([{Name, Value}|Rest], Acc) -> {error, {invalid_name, Name}};
-encode_values(UnknownMember, Acc) ->
+encode_values(UnknownMember, _Acc) ->
     {error, {unknown_member, UnknownMember}}.
