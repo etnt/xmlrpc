@@ -10,7 +10,7 @@ endif
 
 ERLC=erlc
 ERLC_FLAGS=-W $(DEBUG_FLAGS) -I $(XMERL_PATH)/include -I $(XMERL_PATH)/inc -o ../ebin
-MODULES=xmlrpc xmlrpc_decode xmlrpc_encode xmlrpc_http xmlrpc_util tcp_serv
+MODULES=xmlrpc xmlrpc_decode xmlrpc_encode xmlrpc_http xmlrpc_util tcp_serv xmlrpcutils
 EBIN_FILES=$(MODULES:%=../ebin/%.beam)
 
 all: $(EBIN_FILES) 
