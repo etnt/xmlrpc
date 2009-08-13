@@ -79,7 +79,7 @@ call(Socket, URI, Payload, KeepAlive, Timeout) ->
 
 send(Socket, URI, false, Payload) ->
     send(Socket, URI, "Connection: close\r\n", Payload);
-send(Socket, URI, true, Payload) -> send(Socket, URI, "", Payload);
+send(Socket, URI, true, Payload) -> send(Socket, URI, "Connection: keep-alive\r\n", Payload);
 send(Socket, URI, Header, Payload) ->
     Request =
 	["POST ", URI, " HTTP/1.1\r\n",
@@ -94,6 +94,7 @@ send(Socket, URI, Header, Payload) ->
 parse_response(Socket, Timeout) ->
     inet:setopts(Socket, [{packet, line}]),
     case gen_tcp:recv(Socket, 0, Timeout) of
+	{ok, "HTTP/1.0 200 OK\r\n"} -> parse_header(Socket, Timeout);
 	{ok, "HTTP/1.1 200 OK\r\n"} -> parse_header(Socket, Timeout);
 	{ok, StatusLine} -> {error, StatusLine};
 	{error, Reason} -> {error, Reason}
