@@ -15,7 +15,7 @@
 %%
 
 -module(xmlrpcutils).
--author(john@dryfish.org).
+-author('john@dryfish.org').
 
 -export([get_member/2, new_server/3, call/3]).
 
