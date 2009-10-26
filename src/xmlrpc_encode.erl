@@ -104,7 +104,7 @@ encode({base64, Base64}) ->
     end;
 encode(Value) ->
     case xmlrpc_util:is_string(Value) of
-	yes -> escape_string(Value);
+	yes -> ["<string>", escape_string(Value),  "</string>"];
 	no -> {error, {bad_value, Value}}
     end.
 

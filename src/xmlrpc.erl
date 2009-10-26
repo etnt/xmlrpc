@@ -94,7 +94,7 @@ send(Socket, URI, Header, Payload) ->
 parse_response(Socket, Timeout) ->
     inet:setopts(Socket, [{packet, line}]),
     case gen_tcp:recv(Socket, 0, Timeout) of
-	{ok, "HTTP/1.1 200 OK\r\n"} -> parse_header(Socket, Timeout);
+	{ok, "HTTP/1.1 200 \r\n"} -> parse_header(Socket, Timeout);
 	{ok, StatusLine} -> {error, StatusLine};
 	{error, Reason} -> {error, Reason}
     end.
