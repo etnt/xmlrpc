@@ -1,2 +1,12 @@
 *.beam
+*.tmproj 
+dectsrv.tmproj
+*.#*
+temp
 .DS_Store
+edoc-info
+*.html
+*.css
+*.png
+*.dump
+TAGS
