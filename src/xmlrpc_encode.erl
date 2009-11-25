@@ -97,6 +97,11 @@ encode({date, Date}) ->
 	yes -> ["<dateTime.iso8601>", Date, "</dateTime.iso8601>"];
 	no -> {error, {bad_date, Date}}
     end;
+encode({base64, Base64}) when is_binary(Base64) ->
+    case xmlrpc_util:is_base64(Base64) of
+	yes -> ["<base64>", binary_to_list(Base64), "</base64>"];
+	no -> {error, {bad_base64, Base64}}
+    end;
 encode({base64, Base64}) ->
     case xmlrpc_util:is_base64(Base64) of
 	yes -> ["<base64>", Base64, "</base64>"];
