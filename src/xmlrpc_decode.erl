@@ -47,10 +47,10 @@ decode_element(#xmlElement{name = methodCall} = MethodCall) ->
     TextValue = get_text_value(MethodName#xmlElement.content),
     case match_element(normal, [params], Rest) of
 	{error, {missing_element, _}} ->
-	    {ok, {call, list_to_atom(TextValue), []}};
+	    {ok, {call, decode_method_name(TextValue), []}};
 	{Params, _} ->
 	    DecodedParams = decode_params(Params#xmlElement.content),
-	    {ok, {call, list_to_atom(TextValue), DecodedParams}}
+	    {ok, {call, decode_method_name(TextValue), DecodedParams}}
     end;
 decode_element(#xmlElement{name = methodResponse} = MethodResponse) ->
     case match_element([fault, params], MethodResponse#xmlElement.content) of
@@ -73,6 +73,13 @@ decode_element(#xmlElement{name = methodResponse} = MethodResponse) ->
 	    end
     end;
 decode_element(E) -> {error, {bad_element, E}}.
+
+%% If the method name does not exist as an atom we keep it as a list
+%% in order to be able to keep the error reporting in callback module for now.
+decode_method_name(L) when is_list(L) ->
+    try list_to_existing_atom(L)
+    catch error:badarg -> L
+    end.
 
 match_element(NameList, Content) -> match_element(throw, NameList, Content).
 
@@ -173,8 +180,14 @@ decode_members(Content) ->
 	    {Name, Rest2} = match_element([name], Member#xmlElement.content),
 	    TextValue = get_text_value(Name#xmlElement.content),
 	    {Value, _} = match_element([value], Rest2),
-	    [{list_to_atom(TextValue),
+	    [{decode_member_name(TextValue),
 	      decode(Value#xmlElement.content)}|decode_members(Rest)]
+    end.
+
+%% If the member name does not exist as an atom we keep it as a list
+decode_member_name(L) when is_list(L) ->
+    try list_to_existing_atom(L)
+    catch error:badarg -> L
     end.
 
 decode_values([]) -> [];
