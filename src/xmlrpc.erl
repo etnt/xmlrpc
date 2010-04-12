@@ -26,15 +26,15 @@
 
 -module(xmlrpc).
 -author('palfrey@tevp.net').
--export([call/2]).
+-export([call/3]).
 
-%% Exported: call/2
+%% Exported: call/3
 
-call(URL, Payload) ->
+call(Host, URI, Payload) ->
 	inets:start(),
     case xmlrpc_encode:payload(Payload) of
 	{ok, EncodedPayload} ->
-		case http:request(post, {URL, [], "text/xml", lists:flatten(EncodedPayload)}, [], []) of
+		case http:request(post, {"http://"++Host++URI, [], "text/xml", lists:flatten(EncodedPayload)}, [], []) of
 		{ok, {{_, 200, _}, _, Body}} ->
 			case xmlrpc_decode:payload(Body) of
 			{ok, {response, {fault, Code, String}}} -> 
