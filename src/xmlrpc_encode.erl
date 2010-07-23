@@ -53,9 +53,9 @@ payload({response, {fault, Code, String}}) when is_integer(Code) ->
 	    {ok, EncodedPayload};
 	no -> {error, {bad_string, String}}
     end;
-payload({response, []} = Payload) ->
+payload({response, []} = _Payload) ->
     {ok, ["<?xml version=\"1.0\"?><methodResponse></methodResponse>"]};
-payload({response, [Param]} = Payload) ->
+payload({response, [Param]} = _Payload) ->
     case encode_params([Param]) of
 	{error, Reason} -> {error, Reason};
 	EncodedParam ->
