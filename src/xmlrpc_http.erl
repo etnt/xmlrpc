@@ -84,7 +84,7 @@ parse_header(Socket, Timeout, Header) ->
 	    {status, 400};
 	{ok, "\r\n"} -> {ok, Header};
 	{ok, HeaderField} ->
-	    case string:to_lower(split_header_field(HeaderField)) of
+	    case split_header_field(string:to_lower(HeaderField)) of
 		{"content-length:", ContentLength} ->
 		    try
 				N = list_to_integer(ContentLength),
