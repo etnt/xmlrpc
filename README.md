@@ -7,8 +7,9 @@ Patches
  * Support HTTP 1.0 servers which do keep alive.
  * Update to newer Erlang releases from Tangentsoft applied.
    (from http://tangentsoft.net/erlang/xmlrpc-1.13-wy.patch)
+ * Bug fixes from [Eric Liang][2] <eric.l.2046@gmail.com>
 
--- John Wright <john@dryfish.org>
+-- [John Wright][1] <john@dryfish.org>
 
 ----------------------------------------------------------------------------
 
@@ -41,3 +42,6 @@ find an updated link.
 > http://www.gleipnir.com/xmlrpc/.
 > 
 > Send questions and/or suggestions to jocke@gleipnir.com.
+
+[1]: http://github.com/dryfish "John Wright"
+[2]: http://github.com/ericliang "Eric Liang"
