@@ -151,15 +151,19 @@ handle_payload(Socket, Timeout, Handler, State,
     case get_payload(Socket, Timeout, Header#header.content_length) of
 	{ok, Payload} ->
 	    ?DEBUG_LOG({encoded_call, Payload}),
+		log4erl:debug("XMLRPC: http call payload decoder"),
 	    case xmlrpc_decode:payload(Payload) of
 		{ok, DecodedPayload} ->
+			log4erl:debug("XMLRPC: Decoded Payload ~p", [DecodedPayload]),
 		    ?DEBUG_LOG({decoded_call, DecodedPayload}),
 		    eval_payload(Socket, Timeout, Handler, State, Connection,
 				 DecodedPayload);
 		{error, Reason} when Connection == close ->
-		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
+			log4erl:error("XMLRPC: Error Payload ~p", [Reason]),
+   		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400);
 		{error, Reason} ->
+			log4erl:error("XMLRPC: Error Payload ~p", [Reason]),
 		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400),
 		    handler(Socket, Timeout, Handler, State)
@@ -170,7 +174,8 @@ handle_payload(Socket, Timeout, Handler, State,
 get_payload(Socket, Timeout, ContentLength) ->
     inet:setopts(Socket, [{packet, raw}]),
     Payload=gen_tcp:recv(Socket, ContentLength, Timeout),
-	log4erl:debug("XMLRPC: get payload ~p", [Payload]).
+	log4erl:debug("XMLRPC: get payload ~p", [Payload]),
+	Payload.
 
 eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload) ->
     case catch M:F(State, Payload) of
