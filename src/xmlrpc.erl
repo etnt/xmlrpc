@@ -174,6 +174,8 @@ start_link(Port, MaxSessions, Timeout, Handler, State) ->
     start_link(all, Port, MaxSessions, Timeout, Handler, State).
 
 start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
+	application:start(log4erl),
+	log4erl:conf("priv/log4erl.conf"),
     OptionList = [{active, false}, {reuseaddr, true}|ip(IP)],
     SessionHandler = {xmlrpc_http, handler, [Timeout, Handler, State]}, 
     tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
