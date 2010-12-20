@@ -31,49 +31,57 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
+	log4erl:debug("XMLRPC: Payload"),
     case xmerl_scan:string(Payload) of
 	{E, _} when is_record(E, xmlElement) ->
+		log4erl:debug("XMLRPC: Payload Decoder"),
 	    case catch decode_element(E) of
 		{'EXIT', Reason} -> exit(Reason);
 		Result -> Result
 	    end;
-	{error, Reason} -> {error, Reason}
+	{error, Reason} -> 
+		log4erl:debug("XMLRPC: Payload Error"),	
+		{error, Reason}
     end.
 
 decode_element(#xmlElement{name = methodCall} = MethodCall)
-  when is_record(MethodCall, xmlElement) ->
-    {MethodName, Rest} =
-	match_element([methodName], MethodCall#xmlElement.content),
-    TextValue = get_text_value(MethodName#xmlElement.content),
-    case match_element(normal, [params], Rest) of
-	{error, {missing_element, _}} ->
-	    {ok, {call, list_to_atom(TextValue), []}};
-	{Params, _} ->
-	    DecodedParams = decode_params(Params#xmlElement.content),
-	    {ok, {call, list_to_atom(TextValue), DecodedParams}}
-    end;
+  	when is_record(MethodCall, xmlElement) ->
+		log4erl:debug("XMLRPC: decode element methodcall"),
+    	{MethodName, Rest} =
+		match_element([methodName], MethodCall#xmlElement.content),
+    	TextValue = get_text_value(MethodName#xmlElement.content),
+    	case match_element(normal, [params], Rest) of
+			{error, {missing_element, _}} ->
+	    		{ok, {call, list_to_atom(TextValue), []}};
+			{Params, _} ->
+	    		DecodedParams = decode_params(Params#xmlElement.content),
+	    		{ok, {call, list_to_atom(TextValue), DecodedParams}}
+		end;
 decode_element(#xmlElement{name = methodResponse} = MethodResponse)
-  when is_record(MethodResponse, xmlElement) ->
-    case match_element([fault, params], MethodResponse#xmlElement.content) of
-	{Fault, _} when Fault#xmlElement.name == fault ->
-	    {Value, _} = match_element([value], Fault#xmlElement.content),
-	    case decode(Value#xmlElement.content) of
-		{struct, [{faultCode, Code},
-			  {faultString, String}]} when is_integer(Code) ->
-		    case xmlrpc_util:is_string(String) of
-			yes -> {ok, {response, {fault, Code, String}}};
-			no -> {error, {bad_string, String}}
-		    end;
-		_ ->
-		    {error, {bad_element, MethodResponse}}
-	    end;
-	{Params, _} ->
-	    case decode_params(Params#xmlElement.content) of
-		[DecodedParam] -> {ok, {response, [DecodedParam]}};
-		DecodedParams -> {error, {to_many_params, DecodedParams}}
-	    end
-    end;
-decode_element(E) -> {error, {bad_element, E}}.
+	when is_record(MethodResponse, xmlElement) ->
+		log4erl:debug("XMLRPC: decode element methodresponse"),
+    	case match_element([fault, params], MethodResponse#xmlElement.content) of
+		{Fault, _} when Fault#xmlElement.name == fault ->
+	    	{Value, _} = match_element([value], Fault#xmlElement.content),
+	    	case decode(Value#xmlElement.content) of
+			{struct, [{faultCode, Code},
+				{faultString, String}]} when is_integer(Code) ->
+		    		case xmlrpc_util:is_string(String) of
+						yes -> {ok, {response, {fault, Code, String}}};
+						no -> {error, {bad_string, String}}
+		    		end;
+			    _ ->
+		    		{error, {bad_element, MethodResponse}}
+	    	end;
+	  	{Params, _} ->
+	    	case decode_params(Params#xmlElement.content) of
+				[DecodedParam] -> {ok, {response, [DecodedParam]}};
+				DecodedParams -> {error, {to_many_params, DecodedParams}}
+	    	end
+    	end;
+decode_element(E) -> 
+	log4erl:debug("XMLRPC: decode element bad element"),
+	{error, {bad_element, E}}.
 
 match_element(NameList, Content) -> match_element(throw, NameList, Content).
 
