@@ -26,7 +26,7 @@
 
 -module(xmlrpc_http).
 -author('jocke@gleipnir.com').
--export([handler/4]).
+-export([handler/4, split_header_field/1]).
 
 -include("log.hrl").
 
@@ -44,26 +44,34 @@
 %% Exported: handler/3
 
 handler(Socket, Timeout, Handler, State) ->
+	log4erl:debug("xmlrpc http handler ~p", [Handler]),	
     case parse_request(Socket, Timeout) of
 	{ok, Header} ->
 	    ?DEBUG_LOG({header, Header}),
+		log4erl:debug(".. Header ~p", [Header]),	
 	    handle_payload(Socket, Timeout, Handler, State, Header);
 	{status, StatusCode} ->
-	    send(Socket, StatusCode),
+		log4erl:debug(".. Status ~p", [StatusCode]),	
+   	    send(Socket, StatusCode),
 	    handler(Socket, Timeout, Handler, State);
-	{error, Reason} -> {error, Reason}
+	{error, Reason} -> 
+		log4erl:debug(".. Error ~p", [Reason]),	
+		{error, Reason}
     end.
 
 parse_request(Socket, Timeout) ->
     inet:setopts(Socket, [{packet, line}]),
+	log4erl:debug("xmlrpc http parse_request ~p", [Socket]),	
     case gen_tcp:recv(Socket, 0, Timeout) of
 	{ok, RequestLine} ->
 	    case string:tokens(RequestLine, " \r\n") of
 		["POST", _, "HTTP/1.0"] ->
 		    ?DEBUG_LOG({http_version, "1.0"}),
+			log4erl:debug("HTTP 1.0"),	
 		    parse_header(Socket, Timeout, #header{connection = close});
 		["POST", _, "HTTP/1.1"] ->
 		    ?DEBUG_LOG({http_version, "1.1"}),
+			log4erl:debug("HTTP 1.1"),	
 		    parse_header(Socket, Timeout);
 		[_UnknownMethod, _, "HTTP/1.1"] -> {status, 501};
 		["POST", _, _UnknownVersion] -> {status, 505};
@@ -75,17 +83,26 @@ parse_request(Socket, Timeout) ->
 parse_header(Socket, Timeout) -> parse_header(Socket, Timeout, #header{}).
 
 parse_header(Socket, Timeout, Header) ->
+	log4erl:debug("xmlrpc http parse header"),	
     case gen_tcp:recv(Socket, 0, Timeout) of
 	{ok, "\r\n"} when Header#header.content_length == undefined ->
+		log4erl:debug("xmlrpc http status 411"),	
 	    {status, 411};
 	{ok, "\r\n"} when Header#header.content_type == undefined ->
+		log4erl:debug("xmlrpc http status 400"),	
 	    {status, 400};
 	{ok, "\r\n"} when Header#header.user_agent == undefined ->
+		log4erl:debug("xmlrpc http status 400"),	
 	    {status, 400};
 	{ok, "\r\n"} -> {ok, Header};
 	{ok, HeaderField} ->
-	    case string:to_lower(split_header_field(HeaderField)) of
+		LowerHeaderField=string:to_lower(HeaderField),
+		log4erl:debug("xmlrpc http header ok ~p", [LowerHeaderField]),
+		Res=split_header_field(LowerHeaderField),
+		log4erl:debug("xmlrpc http header analyze ~p", [Res]),
+		case Res of
 		{"content-length:", ContentLength} ->
+			log4erl:debug("xmlrpc http header content length ~p", [ContentLength]),	
 		    try
 				N = list_to_integer(ContentLength),
 			    parse_header(Socket, Timeout,
@@ -94,23 +111,32 @@ parse_header(Socket, Timeout, Header) ->
 				_ -> {status, 400}
 			end;
 		{"content-type:", "text/xml"} ->
+			log4erl:debug("xmlrpc http header content type text/xml"),	
 		    parse_header(Socket, Timeout,
 				 Header#header{content_type = "text/xml"});
-		{"content-type:", _UnknownContentType} -> {status, 415};
+		{"content-type:", _UnknownContentType} -> 
+			log4erl:debug("xmlrpc http header content type unknown"),	
+			{status, 415};
 		{"user-agent:", UserAgent} ->
+			log4erl:debug("xmlrpc http header content type user agent ~p", [UserAgent]),	
 		    parse_header(Socket, Timeout,
 				 Header#header{user_agent = UserAgent});
 		{"connection:", "close"} ->
+			log4erl:debug("xmlrpc http header connection close"),	
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = close});
 		{"connection:", [_,$e,$e,$p,$-,_,$l,$i,$v,$e]} ->
+			log4erl:debug("xmlrpc http header connection"),	
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = undefined});
 		_ ->
+			log4erl:debug("xmlrpc http header other"),				
 		    ?DEBUG_LOG({skipped_header, HeaderField}),
 		    parse_header(Socket, Timeout, Header)
-	    end;
-	{error, Reason} -> {error, Reason}
+	    end; 
+	{error, Reason} -> 
+		log4erl:debug("xmlrpc http header error ~p", [Reason]),	
+		{error, Reason}
     end.
 
 split_header_field(HeaderField) -> split_header_field(HeaderField, []).
@@ -121,6 +147,7 @@ split_header_field([C|Rest], Name) -> split_header_field(Rest, [C|Name]).
 
 handle_payload(Socket, Timeout, Handler, State,
 	       #header{connection = Connection} = Header) ->
+	log4erl:debug("xmlrpc http handle payload"),	
     case get_payload(Socket, Timeout, Header#header.content_length) of
 	{ok, Payload} ->
 	    ?DEBUG_LOG({encoded_call, Payload}),
