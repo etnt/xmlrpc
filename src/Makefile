@@ -6,7 +6,7 @@ ERLC = erlc
 GEN = beam
 #Where include files are stored ".hrl"
 EFLAGS = -I../include
-SOURCE = xmlrpc.erl xmlrpc_decode.erl xmlrpc_encode.erl xmlrpc_http.erl xmlrpc_util.erl tcp_serv.erl
+SOURCE = xmlrpc.erl xmlrpc_decode.erl xmlrpc_encode.erl xmlrpc_http.erl xmlrpc_util.erl tcp_serv.erl test.erl
 TARGETS = $(SOURCE:%.erl=$(EBIN)/%.beam)
 
 CODE = $(SOURCE:%.erl=$(EBIN)/%.beam) 
