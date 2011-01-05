@@ -62,19 +62,28 @@ call(Socket, URI, Payload, KeepAlive, Timeout) ->
 			{ok, Header} ->
 			    handle_payload(Socket, KeepAlive, Timeout, Header);
 			{error, Reason} when KeepAlive == false ->
+				log4erl:error("exml: call SOCKET CLOSED (1) ~p", [Reason]),
 			    gen_tcp:close(Socket),
 			    {error, Reason};
-			{error, Reason} -> {error, Socket, Reason}
+			{error, Reason} -> 
+			log4erl:error("exml: call SOCKET CLOSED (1) ~p", [Reason]),
+				{error, Socket, Reason}
 		    end;
 		{error, Reason} when KeepAlive == false ->
+			log4erl:error("exml: call SOCKET CLOSED (1) ~p", [Reason]),
 		    gen_tcp:close(Socket),
 		    {error, Reason};
-		{error, Reason} -> {error, Socket, Reason}
+		{error, Reason} -> 
+		log4erl:error("exml: call SOCKET CLOSED (1) ~p", [Reason]),
+			{error, Socket, Reason}
 	    end;
 	{error, Reason} when KeepAlive == false ->
+		log4erl:error("Socket closed (5) ~p", [Reason]),
 	    gen_tcp:close(Socket),
 	    {error, Reason};
-	{error, Reason} -> {error, Socket, Reason}
+	{error, Reason} -> 
+		log4erl:error("Socket closed (6) ~p", [Reason]),	
+		{error, Socket, Reason}
     end.
 
 send(Socket, URI, false, Payload) ->
@@ -93,10 +102,17 @@ send(Socket, URI, Header, Payload) ->
 
 parse_response(Socket, Timeout) ->
     inet:setopts(Socket, [{packet, line}]),
-    case gen_tcp:recv(Socket, 0, Timeout) of
-	{ok, "HTTP/1.1 200 \r\n"} -> parse_header(Socket, Timeout);
-	{ok, StatusLine} -> {error, StatusLine};
-	{error, Reason} -> {error, Reason}
+	Request = gen_tcp:recv(Socket, 0, Timeout),
+    case Request of
+    % case gen_tcp:recv(Socket, 0, Timeout) of
+	{ok,"HTTP/1.1 200 \r\n"} -> parse_header(Socket, Timeout);
+	{ok,"HTTP/1.1 200 OK\r\n"} -> parse_header(Socket, Timeout);
+	{ok, StatusLine} -> 
+		log4erl:error("exml: Parse error ~p", [StatusLine]),		
+		{error, StatusLine};
+	{error, Reason} -> 
+		log4erl:error("exml: Parse error ~p", [Reason]),		
+		{error, Reason}
     end.
 
 parse_header(Socket, Timeout) -> parse_header(Socket, Timeout, #header{}).

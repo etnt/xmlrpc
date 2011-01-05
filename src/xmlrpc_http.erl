@@ -44,65 +44,54 @@
 %% Exported: handler/3
 
 handler(Socket, Timeout, Handler, State) ->
-	log4erl:debug("XMLRPC: http handler ~p", [Handler]),	
     case parse_request(Socket, Timeout) of
 	{ok, Header} ->
 	    ?DEBUG_LOG({header, Header}),
-		log4erl:debug("XMLRPC: .. Header ~p", [Header]),	
 	    handle_payload(Socket, Timeout, Handler, State, Header);
 	{status, StatusCode} ->
-		log4erl:debug("XMLRPC: .. Status ~p", [StatusCode]),	
    	    send(Socket, StatusCode),
 	    handler(Socket, Timeout, Handler, State);
 	{error, Reason} -> 
-		log4erl:debug("XMLRPC: .. Error ~p", [Reason]),	
+		log4erl:error("exml: handler ERROR ~p", [Reason]),	
 		{error, Reason}
     end.
 
 parse_request(Socket, Timeout) ->
     inet:setopts(Socket, [{packet, line}]),
-	log4erl:debug("XMLRPC: http parse_request ~p", [Socket]),	
     case gen_tcp:recv(Socket, 0, Timeout) of
 	{ok, RequestLine} ->
 	    case string:tokens(RequestLine, " \r\n") of
 		["POST", _, "HTTP/1.0"] ->
 		    ?DEBUG_LOG({http_version, "1.0"}),
-			log4erl:debug("XMLRPC: HTTP 1.0"),	
 		    parse_header(Socket, Timeout, #header{connection = close});
 		["POST", _, "HTTP/1.1"] ->
 		    ?DEBUG_LOG({http_version, "1.1"}),
-			log4erl:debug("XMLRPC: HTTP 1.1"),	
 		    parse_header(Socket, Timeout);
 		[_UnknownMethod, _, "HTTP/1.1"] -> {status, 501};
 		["POST", _, _UnknownVersion] -> {status, 505};
 		_ -> {status, 400}
 	    end;
-	{error, Reason} -> {error, Reason}
+	{error, Reason} -> 
+		log4erl:error("exml: parse_request ERROR ~p", [Reason]),	
+		{error, Reason}
     end.
 
 parse_header(Socket, Timeout) -> parse_header(Socket, Timeout, #header{}).
 
 parse_header(Socket, Timeout, Header) ->
-	log4erl:debug("XMLRPC: http parse header"),	
     case gen_tcp:recv(Socket, 0, Timeout) of
 	{ok, "\r\n"} when Header#header.content_length == undefined ->
-		log4erl:debug("XMLRPC: http status 411"),	
 	    {status, 411};
 	{ok, "\r\n"} when Header#header.content_type == undefined ->
-		log4erl:debug("XMLRPC: http status 400"),	
 	    {status, 400};
 	{ok, "\r\n"} when Header#header.user_agent == undefined ->
-		log4erl:debug("XMLRPC: http status 400"),	
 	    {status, 400};
 	{ok, "\r\n"} -> {ok, Header};
 	{ok, HeaderField} ->
 		LowerHeaderField=string:to_lower(HeaderField),
-		log4erl:debug("XMLRPC: http header ok ~p", [LowerHeaderField]),
 		Res=split_header_field(LowerHeaderField),
-		log4erl:debug("XMLRPC: http header analyze ~p", [Res]),
 		case Res of
 		{"content-length:", ContentLength} ->
-			log4erl:debug("XMLRPC: http header content length ~p", [ContentLength]),	
 		    try
 				N = list_to_integer(ContentLength),
 			    parse_header(Socket, Timeout,
@@ -111,31 +100,25 @@ parse_header(Socket, Timeout, Header) ->
 				_ -> {status, 400}
 			end;
 		{"content-type:", "text/xml"} ->
-			log4erl:debug("XMLRPC: http header content type text/xml"),	
 		    parse_header(Socket, Timeout,
 				 Header#header{content_type = "text/xml"});
 		{"content-type:", _UnknownContentType} -> 
-			log4erl:debug("XMLRPC: http header content type unknown"),	
 			{status, 415};
 		{"user-agent:", UserAgent} ->
-			log4erl:debug("XMLRPC: http header content type user agent ~p", [UserAgent]),	
 		    parse_header(Socket, Timeout,
 				 Header#header{user_agent = UserAgent});
 		{"connection:", "close"} ->
-			log4erl:debug("XMLRPC: http header connection close"),	
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = close});
 		{"connection:", [_,$e,$e,$p,$-,_,$l,$i,$v,$e]} ->
-			log4erl:debug("XMLRPC: http header connection"),	
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = undefined});
 		_ ->
-			log4erl:debug("XMLRPC: http header other"),				
 		    ?DEBUG_LOG({skipped_header, HeaderField}),
 		    parse_header(Socket, Timeout, Header)
 	    end; 
 	{error, Reason} -> 
-		log4erl:debug("XMLRPC: http header error ~p", [Reason]),	
+		log4erl:error("exml: parse_header ERROR ~p", [Reason]),	
 		{error, Reason}
     end.
 
@@ -147,23 +130,20 @@ split_header_field([C|Rest], Name) -> split_header_field(Rest, [C|Name]).
 
 handle_payload(Socket, Timeout, Handler, State,
 	       #header{connection = Connection} = Header) ->
-	log4erl:debug("XMLRPC: http handle payload"),	
     case get_payload(Socket, Timeout, Header#header.content_length) of
 	{ok, Payload} ->
 	    ?DEBUG_LOG({encoded_call, Payload}),
-		log4erl:debug("XMLRPC: http call payload decoder"),
 	    case xmlrpc_decode:payload(Payload) of
 		{ok, DecodedPayload} ->
-			log4erl:debug("XMLRPC: Decoded Payload ~p", [DecodedPayload]),
 		    ?DEBUG_LOG({decoded_call, DecodedPayload}),
 		    eval_payload(Socket, Timeout, Handler, State, Connection,
 				 DecodedPayload);
 		{error, Reason} when Connection == close ->
-			log4erl:error("XMLRPC: Error Payload ~p", [Reason]),
+			log4erl:error("exml: handle_payload ERROR ~p", [Reason]),
    		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400);
 		{error, Reason} ->
-			log4erl:error("XMLRPC: Error Payload ~p", [Reason]),
+			log4erl:error("exml: handle_payload ERROR ~p", [Reason]),
 		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400),
 		    handler(Socket, Timeout, Handler, State)
@@ -174,7 +154,6 @@ handle_payload(Socket, Timeout, Handler, State,
 get_payload(Socket, Timeout, ContentLength) ->
     inet:setopts(Socket, [{packet, raw}]),
     Payload=gen_tcp:recv(Socket, ContentLength, Timeout),
-	log4erl:debug("XMLRPC: get payload ~p", [Payload]),
 	Payload.
 
 eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload) ->
@@ -210,6 +189,7 @@ encode_send(Socket, StatusCode, ExtraHeader, Payload) ->
 	    ?DEBUG_LOG({encoded_response, lists:flatten(EncodedPayload)}),
 	    send(Socket, StatusCode, ExtraHeader, EncodedPayload);
 	{error, Reason} ->
+   		log4erl:error("exml: encode_send ERROR ~p", [Reason]),
 	    ?ERROR_LOG({xmlrpc_encode, payload, Payload, Reason}),
 	    send(Socket, 500)
     end.

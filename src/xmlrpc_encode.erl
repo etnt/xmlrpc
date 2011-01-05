@@ -53,16 +53,18 @@ payload({response, {fault, Code, String}}) when is_integer(Code) ->
 	    {ok, EncodedPayload};
 	no -> {error, {bad_string, String}}
     end;
-payload({response, []} = Payload) ->
+payload({response, []} = _Payload) ->
     {ok, ["<?xml version=\"1.0\"?><methodResponse></methodResponse>"]};
-payload({response, [Param]} = Payload) ->
+payload({response, [Param]} = _Payload) ->
     case encode_params([Param]) of
 	{error, Reason} -> {error, Reason};
 	EncodedParam ->
 	    {ok, ["<?xml version=\"1.0\"?><methodResponse>", EncodedParam,
 		  "</methodResponse>"]}
     end;
-payload(Payload) -> {error, {bad_payload, Payload}}.
+payload(Payload) -> 
+	log4erl:error("exml: payload BAD PAYLOAD ~p", [Payload]),
+	{error, {bad_payload, Payload}}.
 
 encode_params(Params) -> encode_params(Params, []).
 

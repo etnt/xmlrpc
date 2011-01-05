@@ -57,8 +57,8 @@ start_link(Args) -> start_link(Args, 60000).
 start_link(Args, Timeout) ->
 	application:start(log4erl),
 	log4erl:conf("priv/log4erl.conf"),
-	log4erl:debug("XMLRPC: ============================================="),
-	log4erl:debug("XMLRPC: TCP server started"),
+	log4erl:debug("exml: ============================================="),
+	log4erl:debug("exml: TCP server started"),
     Pid = proc_lib:spawn_link(?MODULE, init, [self(), Args]),
     receive
 	{Pid, started} -> {ok, Pid};
@@ -82,7 +82,6 @@ stop(Pid, Timeout) ->
 
 init(Parent, [Port, MaxSessions, OptionList, SessionHandler]) ->
     process_flag(trap_exit, true),
-	log4erl:debug("XMLRPC: TCP server init ~p", [Port]),
     case gen_tcp:listen(Port, OptionList) of
 	{ok, ListenSocket} ->
 	    self() ! start_session,
@@ -109,7 +108,7 @@ loop(#state{session_list = SessionList, listen_socket = ListenSocket,
 	    A = [self(), State#state.session_handler, ListenSocket],
 	    Pid = proc_lib:spawn_link(?MODULE, start_session, A),
 	    loop(State#state{session_list = [Pid|SessionList]});
-        {'EXIT', Parent, Reason} ->
+	{'EXIT', Parent, Reason} ->
 	    cleanup(State),
             exit(Reason);
 	{'EXIT', Pid, Reason} ->
@@ -134,10 +133,10 @@ cleanup(State) -> gen_tcp:close(State#state.listen_socket).
 %% Exported: start_seesion/3
 
 start_session(Parent, {M, F, A}, ListenSocket) ->
-	log4erl:debug("XMLRPC: TCP start session ~p", [ListenSocket]),
-	log4erl:debug("XMLRPC:           M       ~p", [M]),	
-	log4erl:debug("XMLRPC:           F       ~p", [F]),	
-	log4erl:debug("XMLRPC:           A       ~p", [A]),	
+	log4erl:debug("exml: TCP start session ~p", [ListenSocket]),
+	log4erl:debug("exml:           M       ~p", [M]),	
+	log4erl:debug("exml:           F       ~p", [F]),	
+	log4erl:debug("exml:           A       ~p", [A]),	
     case gen_tcp:accept(ListenSocket) of
 	{ok, Socket} ->
 	    Parent ! start_session,

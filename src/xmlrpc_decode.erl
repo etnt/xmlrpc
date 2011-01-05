@@ -31,22 +31,18 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
-	log4erl:debug("XMLRPC: Payload"),
     case xmerl_scan:string(Payload) of
 	{E, _} when is_record(E, xmlElement) ->
-		log4erl:debug("XMLRPC: Payload Decoder"),
 	    case catch decode_element(E) of
 		{'EXIT', Reason} -> exit(Reason);
 		Result -> Result
 	    end;
 	{error, Reason} -> 
-		log4erl:debug("XMLRPC: Payload Error"),	
 		{error, Reason}
     end.
 
 decode_element(#xmlElement{name = methodCall} = MethodCall)
   	when is_record(MethodCall, xmlElement) ->
-		log4erl:debug("XMLRPC: decode element methodcall"),
     	{MethodName, Rest} =
 		match_element([methodName], MethodCall#xmlElement.content),
     	TextValue = get_text_value(MethodName#xmlElement.content),
@@ -59,7 +55,6 @@ decode_element(#xmlElement{name = methodCall} = MethodCall)
 		end;
 decode_element(#xmlElement{name = methodResponse} = MethodResponse)
 	when is_record(MethodResponse, xmlElement) ->
-		log4erl:debug("XMLRPC: decode element methodresponse"),
     	case match_element([fault, params], MethodResponse#xmlElement.content) of
 		{Fault, _} when Fault#xmlElement.name == fault ->
 	    	{Value, _} = match_element([value], Fault#xmlElement.content),
@@ -80,7 +75,7 @@ decode_element(#xmlElement{name = methodResponse} = MethodResponse)
 	    	end
     	end;
 decode_element(E) -> 
-	log4erl:debug("XMLRPC: decode element bad element"),
+	log4erl:error("exml: decode_element BAD ELEMENT ~p", [E]),
 	{error, {bad_element, E}}.
 
 match_element(NameList, Content) -> match_element(throw, NameList, Content).
