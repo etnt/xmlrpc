@@ -52,7 +52,7 @@ handler(Socket, Timeout, Handler, State) ->
    	    send(Socket, StatusCode),
 	    handler(Socket, Timeout, Handler, State);
 	{error, Reason} -> 
-		log4erl:error("exml: handler ERROR ~p", [Reason]),	
+		error_logger:error_msg("exml: handler ERROR ~p", [Reason]),	
 		{error, Reason}
     end.
 
@@ -72,7 +72,7 @@ parse_request(Socket, Timeout) ->
 		_ -> {status, 400}
 	    end;
 	{error, Reason} -> 
-		log4erl:error("exml: parse_request ERROR ~p", [Reason]),	
+		error_logger:error_msg("exml: parse_request ERROR ~p", [Reason]),	
 		{error, Reason}
     end.
 
@@ -118,7 +118,7 @@ parse_header(Socket, Timeout, Header) ->
 		    parse_header(Socket, Timeout, Header)
 	    end; 
 	{error, Reason} -> 
-		log4erl:error("exml: parse_header ERROR ~p", [Reason]),	
+		error_logger:error_msg("exml: parse_header ERROR ~p", [Reason]),	
 		{error, Reason}
     end.
 
@@ -139,11 +139,11 @@ handle_payload(Socket, Timeout, Handler, State,
 		    eval_payload(Socket, Timeout, Handler, State, Connection,
 				 DecodedPayload);
 		{error, Reason} when Connection == close ->
-			log4erl:error("exml: handle_payload ERROR ~p", [Reason]),
+			errro_logger:error_msg("exml: handle_payload ERROR ~p", [Reason]),
    		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400);
 		{error, Reason} ->
-			log4erl:error("exml: handle_payload ERROR ~p", [Reason]),
+			error_logger:error_msg("exml: handle_payload ERROR ~p", [Reason]),
 		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400),
 		    handler(Socket, Timeout, Handler, State)
@@ -189,7 +189,7 @@ encode_send(Socket, StatusCode, ExtraHeader, Payload) ->
 	    ?DEBUG_LOG({encoded_response, lists:flatten(EncodedPayload)}),
 	    send(Socket, StatusCode, ExtraHeader, EncodedPayload);
 	{error, Reason} ->
-   		log4erl:error("exml: encode_send ERROR ~p", [Reason]),
+   		error_logger:error_msg("exml: encode_send ERROR ~p", [Reason]),
 	    ?ERROR_LOG({xmlrpc_encode, payload, Payload, Reason}),
 	    send(Socket, 500)
     end.

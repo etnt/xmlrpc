@@ -63,7 +63,7 @@ payload({response, [Param]} = _Payload) ->
 		  "</methodResponse>"]}
     end;
 payload(Payload) -> 
-	log4erl:error("exml: payload BAD PAYLOAD ~p", [Payload]),
+	error_logger:error_msg("exml: payload BAD PAYLOAD ~p", [Payload]),
 	{error, {bad_payload, Payload}}.
 
 encode_params(Params) -> encode_params(Params, []).

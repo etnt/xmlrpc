@@ -75,7 +75,7 @@ decode_element(#xmlElement{name = methodResponse} = MethodResponse)
 	    	end
     	end;
 decode_element(E) -> 
-	log4erl:error("exml: decode_element BAD ELEMENT ~p", [E]),
+	error_logger:error_msg("exml: decode_element BAD ELEMENT ~p", [E]),
 	{error, {bad_element, E}}.
 
 match_element(NameList, Content) -> match_element(throw, NameList, Content).

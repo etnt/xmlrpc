@@ -62,27 +62,27 @@ call(Socket, URI, Payload, KeepAlive, Timeout) ->
 			{ok, Header} ->
 			    handle_payload(Socket, KeepAlive, Timeout, Header);
 			{error, Reason} when KeepAlive == false ->
-				log4erl:error("exml: call SOCKET CLOSED (1) ~p", [Reason]),
+				error_logger:error_msg("exml: call SOCKET CLOSED (1) ~p", [Reason]),
 			    gen_tcp:close(Socket),
 			    {error, Reason};
 			{error, Reason} -> 
-			log4erl:error("exml: call SOCKET CLOSED (1) ~p", [Reason]),
+			error_logger:error_msg("exml: call SOCKET CLOSED (1) ~p", [Reason]),
 				{error, Socket, Reason}
 		    end;
 		{error, Reason} when KeepAlive == false ->
-			log4erl:error("exml: call SOCKET CLOSED (1) ~p", [Reason]),
+			error_logger:error_msg("exml: call SOCKET CLOSED (1) ~p", [Reason]),
 		    gen_tcp:close(Socket),
 		    {error, Reason};
 		{error, Reason} -> 
-		log4erl:error("exml: call SOCKET CLOSED (1) ~p", [Reason]),
+		error_logger:error_msg("exml: call SOCKET CLOSED (1) ~p", [Reason]),
 			{error, Socket, Reason}
 	    end;
 	{error, Reason} when KeepAlive == false ->
-		log4erl:error("Socket closed (5) ~p", [Reason]),
+		error_msg:error_logger("Socket closed (5) ~p", [Reason]),
 	    gen_tcp:close(Socket),
 	    {error, Reason};
 	{error, Reason} -> 
-		log4erl:error("Socket closed (6) ~p", [Reason]),	
+		error_logger:error_msg("Socket closed (6) ~p", [Reason]),	
 		{error, Socket, Reason}
     end.
 
@@ -108,10 +108,10 @@ parse_response(Socket, Timeout) ->
 	{ok,"HTTP/1.1 200 \r\n"} -> parse_header(Socket, Timeout);
 	{ok,"HTTP/1.1 200 OK\r\n"} -> parse_header(Socket, Timeout);
 	{ok, StatusLine} -> 
-		log4erl:error("exml: Parse error ~p", [StatusLine]),		
+		error_logger:error_msg("exml: Parse error ~p", [StatusLine]),		
 		{error, StatusLine};
 	{error, Reason} -> 
-		log4erl:error("exml: Parse error ~p", [Reason]),		
+		error_logger:error_msg("exml: Parse error ~p", [Reason]),		
 		{error, Reason}
     end.
 
@@ -190,8 +190,6 @@ start_link(Port, MaxSessions, Timeout, Handler, State) ->
     start_link(all, Port, MaxSessions, Timeout, Handler, State).
 
 start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
-	application:start(log4erl),
-	log4erl:conf("priv/log4erl.conf"),
     OptionList = [{active, false}, {reuseaddr, true}|ip(IP)],
     SessionHandler = {xmlrpc_http, handler, [Timeout, Handler, State]}, 
     tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
