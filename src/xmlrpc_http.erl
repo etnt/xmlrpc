@@ -217,7 +217,7 @@ send(Socket, StatusCode, ExtraHeader, Payload) ->
 	 reason_phrase(StatusCode), "\r\n",
 	 "Content-Length: ", integer_to_list(lists:flatlength(Payload)),
 	 "\r\n",
-	 "Content-Type: text/XML\r\n"
+	 "Content-Type: text/xml\r\n",
 	 "Server: Erlang/1.13\r\n",
 	 ExtraHeader, "\r\n",
 	 Payload],
@@ -226,7 +226,7 @@ send(Socket, StatusCode, ExtraHeader, Payload) ->
 reason_phrase(200) -> "OK";
 reason_phrase(400) -> "Bad Request";
 reason_phrase(411) -> "Length required";
-reason_phrase(415) -> "Unsupported Media Type";     
+reason_phrase(415) -> "Unsupported Media Type";
 reason_phrase(500) -> "Internal Server Error";
 reason_phrase(501) -> "Not Implemented";
 reason_phrase(505) -> "HTTP Version not supported".
