@@ -142,6 +142,5 @@ encode_values([Value|Rest], Acc) ->
 	    NewAcc = Acc++["<value>", EncodedValue, "</value>"],
 	    encode_values(Rest, NewAcc)
     end;
-%encode_values([{Name, _Value}|_Rest], _Acc) -> {error, {invalid_name, Name}};
 encode_values(UnknownMember, _Acc) ->
     {error, {unknown_member, UnknownMember}}.
