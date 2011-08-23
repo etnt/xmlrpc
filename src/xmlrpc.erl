@@ -28,6 +28,12 @@
 -author('palfrey@tevp.net').
 -export([call/3]).
 
+-export([cbs_new/0, cbs_record/1,
+	 cbs_ip/1, cbs_ip/2, 
+	 cbs_port/1, cbs_port/2, 
+	 cbs_opaque/1, cbs_opaque/2
+	]).
+
 %% Exported: call/3
 
 call(Host, URI, Payload) ->
@@ -50,3 +56,34 @@ call(Host, URI, Payload) ->
 	{error, Reason} ->
 	    {error, Reason}
     end.
+
+%%% This record can be used by the client to be able to
+%%% retrieve internal info (such as Ip,Port) and at the
+%%% same time preserve the clients own state (opaque).
+%%% NB: No include file is provided, use the access functions!
+-record(cback_state, {
+	  ip,
+	  port,
+	  opaque
+	 }).
+
+cbs_record(#cback_state{}) -> true;
+cbs_record(_)              -> false.
+
+cbs_new() -> 
+    #cback_state{}.
+
+cbs_ip(#cback_state{}=C) ->
+    C#cback_state.ip.
+cbs_ip(#cback_state{}=C, Ip) ->
+    C#cback_state{ip = Ip}.
+
+cbs_port(#cback_state{}=C) ->
+    C#cback_state.port.
+cbs_port(#cback_state{}=C, Port) ->
+    C#cback_state{port = Port}.
+
+cbs_opaque(#cback_state{}=C) ->
+    C#cback_state.opaque.
+cbs_opaque(#cback_state{}=C, Opaque) ->
+    C#cback_state{opaque = Opaque}.
