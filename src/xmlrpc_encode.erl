@@ -35,7 +35,7 @@ payload({call, Name, Params}) when is_atom(Name), is_list(Params) ->
 	{error, Reason} -> {error, Reason};
 	EncodedParams ->
 	    EncodedPayload =
-		["<?xml version=\"1.0\"?><methodCall><methodName>",
+		["<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><methodCall><methodName>",
 		 atom_to_list(Name), "</methodName>", EncodedParams,
 		 "</methodCall>"],
 	    {ok, EncodedPayload}
@@ -44,7 +44,7 @@ payload({response, {fault, Code, String}}) when is_integer(Code) ->
     case xmlrpc_util:is_string(String) of
 	yes ->
 	    EncodedPayload =
-		["<?xml version=\"1.0\"?><methodResponse><fault>"
+		["<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><methodResponse><fault>"
 		 "<value><struct><member><name>faultCode</name><value><int>",
 		 integer_to_list(Code), "</int></value></member><member><name>"
 		 "faultString</name><value><string>", escape_string(String),
@@ -53,13 +53,13 @@ payload({response, {fault, Code, String}}) when is_integer(Code) ->
 	    {ok, EncodedPayload};
 	no -> {error, {bad_string, String}}
     end;
-payload({response, []} = _Payload) ->
+payload({response, []}) ->
     {ok, ["<?xml version=\"1.0\"?><methodResponse></methodResponse>"]};
-payload({response, [Param]} = _Payload) ->
+payload({response, [Param]}) ->
     case encode_params([Param]) of
 	{error, Reason} -> {error, Reason};
 	EncodedParam ->
-	    {ok, ["<?xml version=\"1.0\"?><methodResponse>", EncodedParam,
+	    {ok, ["<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><methodResponse>", EncodedParam,
 		  "</methodResponse>"]}
     end;
 payload(Payload) -> {error, {bad_payload, Payload}}.
@@ -93,18 +93,20 @@ encode(false) -> "<boolean>0</boolean>"; % duh!
 encode(Double) when is_float(Double) ->
     ["<double>", io_lib:format("~p", [Double]), "</double>"];
 encode({date, Date}) ->
-    case xmlrpc_util:is_iso8601_date(Date) of
-	yes -> ["<dateTime.iso8601>", Date, "</dateTime.iso8601>"];
-	no -> {error, {bad_date, Date}}
-    end;
+%    case xmlrpc_util:is_iso8601_date(Date) of
+%	yes -> ["<dateTime.iso8601>", Date, "</dateTime.iso8601>"];
+%	no -> {error, {bad_date, Date}}
+%    end;
+    ["<dateTime.iso8601>", Date, "</dateTime.iso8601>"];
 encode({base64, Base64}) ->
-    case xmlrpc_util:is_base64(Base64) of
-	yes -> ["<base64>", Base64, "</base64>"];
-	no -> {error, {bad_base64, Base64}}
-    end;
+%    case xmlrpc_util:is_base64(Base64) of
+%	yes -> ["<base64>", Base64, "</base64>"];
+%	no -> {error, {bad_base64, Base64}}
+%    end;
+    ["<base64>", Base64, "</base64>"];
 encode(Value) ->
     case xmlrpc_util:is_string(Value) of
-	yes -> escape_string(Value);
+	yes -> ["<string>", escape_string(Value), "</string>"];
 	no -> {error, {bad_value, Value}}
     end.
 
