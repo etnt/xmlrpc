@@ -43,7 +43,8 @@
 
 %% Exported: handler/3
 
-handler(Socket, Timeout, Handler, State) ->
+handler(Socket, Timeout, Handler, State0) ->
+    State = add_peer_info(Socket, State0),
     case parse_request(Socket, Timeout) of
 	{ok, Header} ->
 	    ?DEBUG_LOG({header, Header}),
@@ -52,7 +53,7 @@ handler(Socket, Timeout, Handler, State) ->
    	    send(Socket, StatusCode),
 	    handler(Socket, Timeout, Handler, State);
 	{error, Reason} -> 
-		error_logger:error_msg("exml: handler ERROR ~p", [Reason]),	
+		error_logger:error_msg("xmlrpc: handler ERROR ~p", [Reason]),
 		{error, Reason}
     end.
 
@@ -67,14 +68,34 @@ parse_request(Socket, Timeout) ->
 		["POST", _, "HTTP/1.1"] ->
 		    ?DEBUG_LOG({http_version, "1.1"}),
 		    parse_header(Socket, Timeout);
-		[_UnknownMethod, _, "HTTP/1.1"] -> {status, 501};
-		["POST", _, _UnknownVersion] -> {status, 505};
+		[_Method, _, "HTTP/1.1"] -> {status, 501};
+		["POST", _, _HTTPVersion] -> {status, 505};
 		_ -> {status, 400}
 	    end;
 	{error, Reason} -> 
-		error_logger:error_msg("exml: parse_request ERROR ~p", [Reason]),	
+		error_logger:error_msg("xmlrpc: parse_request ERROR ~p", [Reason]),
 		{error, Reason}
     end.
+
+%%% Add the peer Ip/Port info if possible.
+add_peer_info(Socket, State) ->
+    case xmlrpc:cbs_record(State) of
+	true ->
+	    case catch inet:peername(Socket) of
+		{ok, {Ip, Port}} ->
+		    xmlrpc:cbs_port(xmlrpc:cbs_ip(State, Ip), Port);
+		_ ->
+		    case catch ssl:peername(Socket) of
+			{ok, {Ip, Port}} ->
+			    xmlrpc:cbs_port(xmlrpc:cbs_ip(State, Ip), Port);
+			_ ->
+			    State
+		    end
+	    end;
+	_ ->
+	    State
+    end.
+
 
 parse_header(Socket, Timeout) -> parse_header(Socket, Timeout, #header{}).
 
@@ -88,29 +109,26 @@ parse_header(Socket, Timeout, Header) ->
 	    {status, 400};
 	{ok, "\r\n"} -> {ok, Header};
 	{ok, HeaderField} ->
-		LowerHeaderField=string:to_lower(HeaderField),
-		Res=split_header_field(LowerHeaderField),
-		case Res of
-		{"content-length:", ContentLength} ->
-		    try
-				N = list_to_integer(ContentLength),
-			    parse_header(Socket, Timeout,
-					 Header#header{content_length = N})
-			catch
-				_ -> {status, 400}
-			end;
-		{"content-type:", "text/xml"} ->
+	    case split_header_field(HeaderField) of
+		["content-length", ContentLength] ->
+                    try N = list_to_integer(ContentLength),
+                        parse_header(Socket, Timeout,
+                                     Header#header{content_length = N})
+                    catch 
+                        _:_ -> {status, 400}
+                    end;
+		["content-type", Type="text/xml"++_] ->
 		    parse_header(Socket, Timeout,
-				 Header#header{content_type = "text/xml"});
-		{"content-type:", _UnknownContentType} -> 
-			{status, 415};
-		{"user-agent:", UserAgent} ->
+				 Header#header{content_type = Type});
+		["content-type", _ContentType] ->
+                    {status, 415};
+		["user-agent", UserAgent] ->
 		    parse_header(Socket, Timeout,
 				 Header#header{user_agent = UserAgent});
-		{"connection:", "close"} ->
+		["connection", "close"] ->
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = close});
-		{"connection:", [_,$e,$e,$p,$-,_,$l,$i,$v,$e]} ->
+		["connection", "keep-alive"] ->
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = undefined});
 		_ ->
@@ -118,15 +136,19 @@ parse_header(Socket, Timeout, Header) ->
 		    parse_header(Socket, Timeout, Header)
 	    end; 
 	{error, Reason} -> 
-		error_logger:error_msg("exml: parse_header ERROR ~p", [Reason]),	
+		error_logger:error_msg("xmlrpc: parse_header ERROR ~p", [Reason]),
 		{error, Reason}
     end.
 
-split_header_field(HeaderField) -> split_header_field(HeaderField, []).
+split_header_field(Str) ->
+  [string:strip(S) || S <- string:tokens(string:to_lower(Str),":\r\n")].
 
-split_header_field([], Name) -> {Name, ""};
-split_header_field([$ |Rest], Name) -> {lists:reverse(Name), Rest -- "\r\n"};
-split_header_field([C|Rest], Name) -> split_header_field(Rest, [C|Name]).
+%% split_header_field(HeaderField) -> split_header_field(HeaderField, []).
+
+%% split_header_field([], Name) -> {Name, ""};
+%% split_header_field([$ |Rest], Name) -> {lists:reverse(Name),
+%% 					lowercase(Rest) -- "\r\n"};
+%% split_header_field([C|Rest], Name) -> split_header_field(Rest, [C|Name]).
 
 handle_payload(Socket, Timeout, Handler, State,
 	       #header{connection = Connection} = Header) ->
@@ -139,11 +161,11 @@ handle_payload(Socket, Timeout, Handler, State,
 		    eval_payload(Socket, Timeout, Handler, State, Connection,
 				 DecodedPayload);
 		{error, Reason} when Connection == close ->
-			errro_logger:error_msg("exml: handle_payload ERROR ~p", [Reason]),
+			error_logger:error_msg("xmlrpc: handle_payload ERROR ~p", [Reason]),
    		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400);
 		{error, Reason} ->
-			error_logger:error_msg("exml: handle_payload ERROR ~p", [Reason]),
+			error_logger:error_msg("xmlrpc: handle_payload ERROR ~p", [Reason]),
 		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400),
 		    handler(Socket, Timeout, Handler, State)
@@ -189,7 +211,7 @@ encode_send(Socket, StatusCode, ExtraHeader, Payload) ->
 	    ?DEBUG_LOG({encoded_response, lists:flatten(EncodedPayload)}),
 	    send(Socket, StatusCode, ExtraHeader, EncodedPayload);
 	{error, Reason} ->
-   		error_logger:error_msg("exml: encode_send ERROR ~p", [Reason]),
+   		error_logger:error_msg("xmlrpc: encode_send ERROR ~p", [Reason]),
 	    ?ERROR_LOG({xmlrpc_encode, payload, Payload, Reason}),
 	    send(Socket, 500)
     end.
@@ -205,6 +227,7 @@ send(Socket, StatusCode, ExtraHeader, Payload) ->
 	 reason_phrase(StatusCode), "\r\n",
 	 "Content-Length: ", integer_to_list(lists:flatlength(Payload)),
 	 "\r\n",
+	 "Content-Type: text/xml\r\n",
 	 "Server: Erlang/1.13\r\n",
 	 ExtraHeader, "\r\n",
 	 Payload],
@@ -213,7 +236,10 @@ send(Socket, StatusCode, ExtraHeader, Payload) ->
 reason_phrase(200) -> "OK";
 reason_phrase(400) -> "Bad Request";
 reason_phrase(411) -> "Length required";
-reason_phrase(415) -> "Unsupported Media Type";     
+reason_phrase(415) -> "Unsupported Media Type";
 reason_phrase(500) -> "Internal Server Error";
 reason_phrase(501) -> "Not Implemented";
 reason_phrase(505) -> "HTTP Version not supported".
+
+
+

@@ -28,66 +28,71 @@
 -author('jocke@gleipnir.com').
 -export([payload/1]).
 
+-include("log.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
-    case xmerl_scan:string(Payload) of
-	{E, _} when is_record(E, xmlElement) ->
+    case catch xmerl_scan:string(Payload) of
+	{'EXIT', Reason} -> {error, Reason};
+	{E, _}  ->
 	    case catch decode_element(E) of
-		{'EXIT', Reason} -> exit(Reason);
+		{'EXIT', Reason} -> {error, Reason};
 		Result -> Result
-	    end;
-	{error, Reason} -> 
-		{error, Reason}
+	    end
     end.
 
-decode_element(#xmlElement{name = methodCall} = MethodCall)
-  	when is_record(MethodCall, xmlElement) ->
-    	{MethodName, Rest} =
-		match_element([methodName], MethodCall#xmlElement.content),
-    	TextValue = get_text_value(MethodName#xmlElement.content),
-    	case match_element(normal, [params], Rest) of
-			{error, {missing_element, _}} ->
-	    		{ok, {call, list_to_atom(TextValue), []}};
-			{Params, _} ->
-	    		DecodedParams = decode_params(Params#xmlElement.content),
-	    		{ok, {call, list_to_atom(TextValue), DecodedParams}}
-		end;
-decode_element(#xmlElement{name = methodResponse} = MethodResponse)
-	when is_record(MethodResponse, xmlElement) ->
-    	case match_element([fault, params], MethodResponse#xmlElement.content) of
-		{Fault, _} when Fault#xmlElement.name == fault ->
-	    	{Value, _} = match_element([value], Fault#xmlElement.content),
-	    	case decode(Value#xmlElement.content) of
-			{struct, [{faultCode, Code},
-				{faultString, String}]} when is_integer(Code) ->
-		    		case xmlrpc_util:is_string(String) of
-						yes -> {ok, {response, {fault, Code, String}}};
-						no -> {error, {bad_string, String}}
-		    		end;
-			    _ ->
-		    		{error, {bad_element, MethodResponse}}
-	    	end;
-	  	{Params, _} ->
-	    	case decode_params(Params#xmlElement.content) of
-				[DecodedParam] -> {ok, {response, [DecodedParam]}};
-				DecodedParams -> {error, {to_many_params, DecodedParams}}
-	    	end
-    	end;
-decode_element(E) -> 
-	error_logger:error_msg("exml: decode_element BAD ELEMENT ~p", [E]),
-	{error, {bad_element, E}}.
+decode_element(#xmlElement{name = methodCall} = MethodCall) ->
+    {MethodName, Rest} =
+	match_element([methodName], MethodCall#xmlElement.content),
+    TextValue = get_text_value(MethodName#xmlElement.content),
+    case match_element(normal, [params], Rest) of
+	{error, {missing_element, _}} ->
+	    {ok, {call, decode_method_name(TextValue), []}};
+	{Params, _} ->
+	    DecodedParams = decode_params(Params#xmlElement.content),
+	    {ok, {call, decode_method_name(TextValue), DecodedParams}}
+    end;
+decode_element(#xmlElement{name = methodResponse} = MethodResponse) ->
+    case match_element([fault, params], MethodResponse#xmlElement.content) of
+	{Fault, _} when Fault#xmlElement.name == fault ->
+	    {Value, _} = match_element([value], Fault#xmlElement.content),
+	    case decode(Value#xmlElement.content) of
+		{struct, [{faultCode, Code},
+			  {faultString, String}]} when is_integer(Code) ->
+		    case xmlrpc_util:is_string(String) of
+			yes -> {ok, {response, {fault, Code, String}}};
+			no -> {error, {bad_string, String}}
+		    end;
+		_ ->
+		    {error, {bad_element, MethodResponse}}
+	    end;
+	{Params, _} ->
+	    case decode_params(Params#xmlElement.content) of
+		[DecodedParam] -> {ok, {response, [DecodedParam]}};
+		DecodedParams -> {error, {to_many_params, DecodedParams}}
+	    end
+    end;
+decode_element(E) ->
+    error_logger:error_msg("xmlrpc: decode_element BAD ELEMENT ~p", [E]),
+    {error, {bad_element, E}}.
+
+%% If the method name does not exist as an atom we keep it as a list
+%% in order to be able to keep the error reporting in callback module for now.
+decode_method_name(L) when is_list(L) ->
+    try list_to_existing_atom(L)
+    catch error:badarg -> L
+    end.
 
 match_element(NameList, Content) -> match_element(throw, NameList, Content).
 
 match_element(Type, NameList, []) ->
     return(Type, {error, {missing_element, NameList}});
-match_element(Type, NameList, [E|Rest]) when is_record(E, xmlElement) ->
+match_element(Type, NameList, [#xmlElement{}=E|Rest]) ->
     case lists:member(E#xmlElement.name, NameList) of
 	true -> {E, Rest};
 	false -> return(Type, {error, {unexpected_element, E#xmlElement.name}})
     end;
-match_element(Type, NameList, [T|Rest]) when is_record(T, xmlText) ->
+match_element(Type, NameList, [#xmlText{}=T|Rest]) ->
     case only_whitespace(T#xmlText.value) of
 	yes -> match_element(Type, NameList, Rest);
 	no ->
@@ -104,7 +109,7 @@ only_whitespace([$\t|Rest]) -> only_whitespace(Rest);
 only_whitespace(_) -> no.
 
 get_text_value([]) -> [];
-get_text_value([T|Rest]) when is_record(T, xmlText) ->
+get_text_value([#xmlText{}=T|Rest]) ->
     T#xmlText.value++get_text_value(Rest);
 get_text_value(_) -> throw({error, missing_text}).
 
@@ -122,7 +127,7 @@ decode(Content) when is_list(Content) ->
 	{text_value, TextValue} -> TextValue;
 	E -> decode(E)
     end;
-decode(String) when is_record(String, xmlText) -> String#xmlText.value;
+decode(#xmlText{}=String) -> String#xmlText.value;
 decode(Struct) when Struct#xmlElement.name == struct ->
     {struct, decode_members(Struct#xmlElement.content)};
 decode(Array) when Array#xmlElement.name == array ->
@@ -144,10 +149,12 @@ decode(Double) when Double#xmlElement.name == double ->
     make_double(TextValue);
 decode(Date) when Date#xmlElement.name == 'dateTime.iso8601' ->
     TextValue = get_text_value(Date#xmlElement.content),
-    {date, ensure_iso8601_date(TextValue)};
+%    {date, ensure_iso8601_date(TextValue)}; % FIXME
+    {date, TextValue};
 decode(Base64) when Base64#xmlElement.name == base64 ->
     TextValue = get_text_value(Base64#xmlElement.content),
-    {base64, ensure_base64(TextValue)};
+%    {base64, ensure_base64(TextValue)}; % FIXME
+    {base64, TextValue};
 decode(Value) -> throw({error, {bad_value, Value}}).
 
 get_value(Content) ->
@@ -157,12 +164,12 @@ get_value(Content) ->
     end.
 
 any_element([]) -> false;
-any_element([E|_]) when is_record(E, xmlElement) -> true;
+any_element([#xmlElement{}|_]) -> true;
 any_element([_|Rest]) -> any_element(Rest).
 
 get_element([]) -> throw({error, missing_element});
-get_element([E|_]) when is_record(E, xmlElement) -> E;
-get_element([T|Rest]) when is_record(T, xmlText) ->
+get_element([#xmlElement{}=E|_]) -> E;
+get_element([#xmlText{}=T|Rest]) ->
     case only_whitespace(T#xmlText.value) of
 	yes -> get_element(Rest);
 	no -> throw({error, {unexpected_text, T#xmlText.value}})
@@ -175,8 +182,14 @@ decode_members(Content) ->
 	    {Name, Rest2} = match_element([name], Member#xmlElement.content),
 	    TextValue = get_text_value(Name#xmlElement.content),
 	    {Value, _} = match_element([value], Rest2),
-	    [{list_to_atom(TextValue),
+	    [{decode_member_name(TextValue),
 	      decode(Value#xmlElement.content)}|decode_members(Rest)]
+    end.
+
+%% If the member name does not exist as an atom we keep it as a list
+decode_member_name(L) when is_list(L) ->
+    try list_to_existing_atom(L)
+    catch error:badarg -> L
     end.
 
 decode_values([]) -> [];
@@ -195,18 +208,24 @@ make_integer(Integer) ->
 
 make_double(Double) ->
     case catch list_to_float(Double) of
-	{'EXIT', _} -> throw({error, {not_double, Double}});
+	{'EXIT', _} ->
+	    case catch list_to_integer(Double) of
+		{'EXIT', _} ->
+		    throw({error, {not_double, Double}});
+		Value -> float(Value)
+	    end;
 	Value -> Value
     end.
 
-ensure_iso8601_date(Date) ->
-    case xmlrpc_util:is_iso8601_date(Date) of
-	no -> throw({error, {not_iso8601_date, Date}});
-	yes -> Date
-    end.
-
-ensure_base64(Base64) ->
-    case xmlrpc_util:is_base64(Base64) of
-	no -> throw({error, {not_base64, Base64}});
-	yes -> Base64
-    end.
+% FIXME
+%ensure_iso8601_date(Date) ->
+%    case xmlrpc_util:is_iso8601_date(Date) of
+%	no -> throw({error, {not_iso8601_date, Date}});
+%	yes -> Date
+%    end.
+%
+%ensure_base64(Base64) ->
+%    case xmlrpc_util:is_base64(Base64) of
+%	no -> throw({error, {not_base64, Base64}});
+%	yes -> Base64
+%    end.
