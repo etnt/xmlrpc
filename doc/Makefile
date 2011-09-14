@@ -1,4 +1,5 @@
-include ../../../support/include.mk
+GROFF=groff
+PS2PDF=ps2pdf
 
 all: xmlrpc.txt xmlrpc.ps xmlrpc.pdf
 
