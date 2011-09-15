@@ -1,4 +1,4 @@
-%% Copyright (C) 2003 Joakim Grebenö <jocke@gleipnir.com>.
+%% Copyright (C) 2003 Joakim Grebenö <jocke@tail-f.com>.
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -24,8 +24,12 @@
 %% NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 %% SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+%% @private
+%% @author jocke@tail-f.com
+%% @copyright 2003 Joakim Grebenö
+
 -module(xmlrpc_util).
--author('jocke@gleipnir.com').
+
 -export([is_string/1, is_iso8601_date/1, is_base64/1]).
 
 is_string([C|Rest]) when C >= 0, C =< 255 -> is_string(Rest);

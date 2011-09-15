@@ -1,0 +1,139 @@
+@author Joakim Grebenö
+@author Torbjörn Törnkvist
+@copyright 2003 Joakim Grebenö
+
+@reference <a href="rfc2068.txt">RFC 2068</a>
+@reference <a href="xmlrpc_spec.txt">XML-RPC Specification by Dave Winer</a>
+@doc
+This is an HTTP 1.1 compliant XML-RPC Erlang library. It is designed
+to make it easy to write XML-RPC Erlang clients and/or servers. The
+library is compliant with the XML-RPC specification published by
+[http://www.xmlrpc.org/]
+
+The original author of this library was Joakim Grebenö. It is
+currently maintained by Torbjörn Törnkvist. Send questions and/or
+suggestions to `etnt@redhoterlang.com'.
+
+== Callbacks ==
+
+When starting an XML-RPC server (see {@link xmlrpc:start_link/6}), you must
+specify a `Handler' argument, which is a tuple of two atoms `{Module,
+Function}'.
+
+It is up to you to ensure that `Function' in `Module' exists. Every time an
+XML-RPC call arrives, the `Value' in the `Payload' gets converted to Erlang
+format and is passed on to `Module:Function/2'.
+```Module:Function ( State ,  Payload ) -> Result'''
+
+where `State' is any Erlang term and the returned `Result' is either a
+2-tuple `{KeepAlive, ResponsePayload}' or a 4-tuple `{KeepAlive, State,
+Timeout, ResponsePayload}'. (Note: `KeepAlive' <em>must</em> be `false' in a
+2-tuple and `true' in a 4-tuple.)
+
+The returned `KeepAlive' value decides if the connection to the client
+should be kept open or not - compare with the `KeepAlive' argument to {@link
+xmlrpc:call/6}.
+
+`State' can be used as a state variable by the callback function and changes
+made to it are propagated to the next call to `Module:Function/2'. The state
+variable is only meaningful if both the client and the server are
+keepalive-oriented. The `Timeout' specified in {@link xmlrpc:start_link/6}
+can be updated in the returned 4-tuple.
+
+If `KeepAlive' is `true' and no call arrives within `Timeout' milliseconds,
+the socket is closed. The socket may be closed by the client before the
+specified timeout.
+
+== Data Types ==
+
+The conversion of XML-RPC values in method arguments and
+return values is done as follows:
+
+```
+XML-RPC value           Erlang representation
+-----------------       ----------------
+<int>                   integer()
+<boolean>               boolean()
+<string>                string()
+<double>                float()
+<dateTime.iso8601>      {date, string()}
+<struct>                {struct, [{Key::atom(), Value}]}
+<array>                 {array, [Value]}
+<base64>                {base64, string()}
+'''
+
+Read more about the XML-RPC data types in the XML-RPC specification
+published by [http://www.xmlrpc.org/].
+
+Here are some examples on how the Erlang format is converted to XML:
+<dl>
+ <dt>`42'</dt>
+ <dd>`<int>42</int>'</dd>
+ <dt>`true'</dt>
+ <dd>`<boolean>true</boolean>'</dd>
+ <dt>`"Kilroy was here"'</dt>
+ <dd>`<string>Kilroy was here</string>'</dd>
+ <dt>`42.5'</dt>
+ <dd>`<double>42.5</double>'</dd>
+ <dt>`{date, "19980717T14:08:55"}'</dt>
+ <dd>`<dateTime.iso8601>19980717T14:08:55</dateTime.iso8601>'</dd>
+ <dt>`{struct, [{foo, 42}, {bar, 4711}]}'</dt>
+ <dd>
+```<struct>
+     <member>
+       <name>foo</name><value><int>42</int></value>
+     </member>
+     <member>
+       <name>bar</name><value><int>4711</int></value>
+     </member>
+   </struct>'''</dd>
+ <dt>`{array, [42, 42.5}'</dt>
+ <dd>
+```<array>
+     <data>
+       <value><int>42</i4></value>
+       <value><double>42.5</double></value>
+     </data>
+   </array>'''</dd>
+ <dt>`{date, "19980717T14:08:55"}'</dt>
+ <dd>`<dateTime.iso8601>19980717T14:08:55</dateTime.iso8601>'</dd>
+</dl>
+
+== Examples ==
+
+You are strongly advised to inspect the example code in the `examples'
+subdirectory:
+<dl>
+ <dt>`fib_server.erl'</dt>
+ <dd>A non-keepalive server, calculating Fibonacci values.</dd>
+ <dt>`echo_server.erl'</dt>
+ <dd>A non-keepalive server, echoing back any incoming parameters.</dd>
+ <dt>`date_server.erl'</dt>
+ <dd>A keepalive server, calculating calendar values for given dates
+     and uses the state variable to provide login state and different
+     timeout settings.</dd>
+ <dt>`validator.erl'</dt>
+ <dd>A validation server which can be used to validate the library
+     using the [http://validator.xmlrpc.org/] service.</dd>
+</dl>
+
+The following is a snippet from the Fibonacci callback module in the
+`examples/' directory:
+```
+handler(_State, {call, fib, [N]}) when integer(N) ->
+    {false, {response, [fib(N)]}};
+handler(_State, Payload) ->
+    FaultString = lists:flatten(io_lib:format("Unknown call: ~p", [Payload])),
+    {false, {response, {fault, -1, FaultString}}}.
+
+fib(0) -> 1;
+fib(1) -> 1;
+fib(N) -> fib(N-1)+fib(N-2).
+'''
+and here is how it can be called:
+```
+1> xmlrpc:call({127, 0, 0, 1}, 4567, "/", {call, fib, [0]}). 
+{ok,{response,[1]}}
+2> xmlrpc:call({127, 0, 0, 1}, 4567, "/", {call, fib, [4]}).
+{ok,{response,[5]}}
+'''

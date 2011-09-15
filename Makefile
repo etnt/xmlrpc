@@ -1,17 +1,16 @@
 VSN=1.13
 PUB_VSN="{1, 13}"
 
-.PHONY: all doc clean test release
+.PHONY: all docs clean test release
 
 all:
 	(cd src;$(MAKE))
 
-doc:
-	(cd doc;$(MAKE))
+docs:
+	(cd src;$(MAKE) docs)
 
 clean:
 	(cd src;$(MAKE) clean)
-	(cd doc;$(MAKE) clean)
 
 test: all
 	(cd test;$(MAKE))
