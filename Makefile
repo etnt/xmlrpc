@@ -1,5 +1,4 @@
-VSN=1.13
-PUB_VSN="{1, 13}"
+include vsn.mk
 
 .PHONY: all docs clean test release
 
@@ -18,8 +17,7 @@ test: all
 release: all
 	rm -fr releases/xmlrpc-$(VSN)
 	mkdir releases/xmlrpc-$(VSN)
-	sed 's/%VSN%/'$(PUB_VSN)'/' xmlrpc.pub > releases/xmlrpc-$(VSN)/xmlrpc.pub
-	install -m 644 CHANGES LICENSE README TODO releases/xmlrpc-$(VSN)
+	install -m 644 LICENSE README releases/xmlrpc-$(VSN)
 	mkdir releases/xmlrpc-$(VSN)/doc
 	install -m 644 doc/xmlrpc.3 releases/xmlrpc-$(VSN)/doc
 	install -m 644 doc/xmlrpc.txt releases/xmlrpc-$(VSN)/doc
