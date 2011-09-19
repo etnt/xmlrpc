@@ -1,4 +1,4 @@
-%% Copyright (C) 2003 Joakim Grebenö <jocke@gleipnir.com>.
+%% Copyright (C) 2003 Joakim Grebenö <jocke@tail-f.com>.
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -24,8 +24,17 @@
 %% NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 %% SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+%% @author Joakim Grebenö <jocke@tail-f.com>
+%% @author Torbjörn Törnkvist <etnt@redhoterlang.com>
+%% @copyright 2003 Joakim Grebenö
+
+%% TODO: Document the callback state functions
+%% TODO: SOAP
+%% TODO: Integration into either the inets, jnets or yaws web server.
+%% TODO: Implementation of the function inspection protocol.
+
 -module(xmlrpc).
--author('jocke@gleipnir.com').
+
 -export([call/3, call/4, call/5, call/6]).
 -export([start_link/1, start_link/5, start_link/6, stop/1]).
 
@@ -79,32 +88,132 @@ cbs_opaque(#cback_state{}=C, Opaque) ->
     C#cback_state{opaque = Opaque}.
 
 
+%% Type definitions
+
+-type socket() :: term().
+
+-type ip_address() :: inet:ip_address().
+
+-type host() :: string() | ip_address().
+
+-type iso8601date() :: {date, string()}.
+
+-type base64() :: {base64, string()}.
+
+-type uri() :: string().
+
+-type xmlrpc_value() ::  integer() | float() | string() | boolean()
+  | iso8601date() | base64() | xmlrpc_struct() | xmlrpc_array().
+
+-type xmlrpc_struct() :: {struct, [{Key::atom(), Value::xmlrpc_value()}]}.
+
+-type xmlrpc_array() :: {array, [xmlrpc_value()]}.
+
+-type response_payload() :: {response, [xmlrpc_value()]}
+                          | {response, {fault, Code::integer(),
+                                        Message::string()}}.
+
+-type call_result() :: {ok, response_payload()}
+                     | {ok, socket(), response_payload()}
+                     | {error, Reason::term()}
+                     | {error, socket(), Reason::term()}.
+
+
 %%%
 %%% Quick and dirty solution for adding SSL support.
 %%%
 -define(SSL, ssl).
 
-ssl_call(Host, Port, URI) ->
+-spec ssl_call(Socket, URI, Payload) -> call_result()
+ when Socket :: socket(),
+      URI :: uri(),
+      Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]}.
+
+%% @equiv ssl_call(Socket, URI, Payload, false, 60000)
+%% @see ssl_call/5
+
+ssl_call(Socket, URI, Payload) ->
     put(proto, ?SSL),
-    call(Host, Port, URI).
+    call(Socket, URI, Payload).
+
+-spec ssl_call(Host, Port, URI, Payload) -> call_result()
+ when Host :: host(),
+      Port :: integer(),
+      URI :: uri(),
+      Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]}.
+
+%% @equiv ssl_call(Host, Port, URI, Payload, false, 60000)
+%% @see ssl_call/6
 
 ssl_call(Host, Port, URI, Payload) ->
     put(proto, ?SSL),
     call(Host, Port, URI, Payload).
 
+-spec ssl_call(Socket, URI, Payload, KeepAlive, Timeout) -> call_result()
+ when Socket :: socket(),
+      URI :: uri(),
+      Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]},
+      KeepAlive :: boolean(),
+      Timeout :: integer().
+
+%% @doc Calls an XML-RPC server on an open SSL connection.
+%% @see ssl_call/6
+
 ssl_call(Socket, URI, Payload, KeepAlive, Timeout) ->
     put(proto, ?SSL),
     call(Socket, URI, Payload, KeepAlive, Timeout).
+
+-spec ssl_call(Host, Port, URI, Payload, KeepAlive, Timeout) -> call_result()
+ when Host :: host(),
+      Port :: integer(),
+      URI :: uri(),
+      Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]},
+      KeepAlive :: boolean(),
+      Timeout :: integer().
+
+%% @doc Calls an SSL XML-RPC server listening on `Host:Port' over.
+%% @see call/6
 
 ssl_call(Host, Port, URI, Payload, KeepAlive, Timeout) ->
     put(proto, ?SSL),
     call(Host, Port, URI, Payload, KeepAlive, Timeout).
 
 
+
 %% Exported: call/{3,4,5,6}
+
+-spec call(Host, Port, URI, Payload) -> call_result()
+ when Host :: host(),
+      Port :: integer(),
+      URI :: uri(),
+      Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]}.
+
+%% @equiv call(Host, Port, URI, Payload, false, 60000)
 
 call(Host, Port, URI, Payload) ->
     call(Host, Port, URI, Payload, false, 60000).
+
+-spec call(Host, Port, URI, Payload, KeepAlive, Timeout) -> call_result()
+ when Host :: host(),
+      Port :: integer(),
+      URI :: uri(),
+      Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]},
+      KeepAlive :: boolean(),
+      Timeout :: integer().
+
+%% @doc Calls an XML-RPC server listening on `Host:Port'. The arguments
+%% `URI' and `Payload' are used in the HTTP POST request sent to the server.
+%% The `Arguments' are converted to XML for the request body.
+%%
+%% If `KeepAlive' is `true', a socket is returned. The socket can be used
+%% to send several calls on the same connection in accordance with HTTP 1.1.
+%% If no server response is received within `Timeout' milliseconds
+%% `{error, timeout}' or `{error, Socket, timeout}' is returned.
+%%
+%% `KeepAlive' and `Timeout' default to `false' and `60000' milliseconds,
+%% respectively.
+%%
+%% @see ssl_call/6
 
 call(Host, Port, URI, Payload, KeepAlive, Timeout) ->
     case connect(Host, Port, [{active, false}]) of
@@ -113,7 +222,25 @@ call(Host, Port, URI, Payload, KeepAlive, Timeout) ->
 	{error, Reason} -> {error, undefined, Reason}
     end.
 
-call(Socket, URI, Payload) -> call(Socket, URI, Payload, false, 60000).
+-spec call(Socket, URI, Payload) -> call_result()
+ when Socket :: socket(),
+      URI :: uri(),
+      Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]}.
+
+%% @equiv call(Socket, URI, Payload, false, 60000)
+
+call(Socket, URI, Payload) ->
+    call(Socket, URI, Payload, false, 60000).
+
+-spec call(Socket, URI, Payload, KeepAlive, Timeout) -> call_result()
+ when Socket :: socket(),
+      URI :: uri(),
+      Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]},
+      KeepAlive :: boolean(),
+      Timeout :: integer().
+
+%% @doc Calls an XML-RPC server on an open connection.
+%% @see call/6
 
 call(Socket, URI, Payload, KeepAlive, Timeout) ->
     ?DEBUG_LOG({decoded_call, Payload}),
@@ -244,23 +371,63 @@ get_payload(Socket, Timeout, ContentLength) ->
 
 %% Exported: start_link/{1,5,6}
 
+-spec start_link(Handler) -> {ok, pid()} | {error, Reason::term()}
+ when Handler :: {Module::atom(), Function::atom()}.
+
+%% @equiv start_link(4567, 1000, 60000, Handler, undefined)
+
 start_link(Handler) ->
     start_link(4567, 1000, 60000, Handler, undefined).
+
+-spec start_link(Port, MaxSessions, Timeout, Handler, State) ->
+          {ok, pid()} | {error, Reason::term()}
+ when Port :: integer(),
+      MaxSessions :: integer(),
+      Timeout :: integer(),
+      Handler :: {Module::atom(), Function::atom()},
+      State :: term().
+
+%% @equiv start_link(all, Port, MaxSessions, Timeout, Handler, State)
 
 start_link(Port, MaxSessions, Timeout, Handler, State) ->
     start_link(all, Port, MaxSessions, Timeout, Handler, State).
 
+-spec start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
+          {ok, pid()} | {error, Reason::term()}
+ when IP :: ip_address(),
+      Port :: integer(),
+      MaxSessions :: integer(),
+      Timeout :: integer(),
+      Handler :: {Module::atom(), Function::atom()},
+      State :: term().
+
+%% @doc Starts an XML-RPC server listening on `IP:Port'. If no IP address is
+%% given, the server listens on `Port' for all available IP addresses.
+%% `MaxSessions' is used to restrict the number of concurrent connections.
+%% If `MaxSessions' is reached, the server accepts no new connections for 5
+%% seconds, i.e., blocks new connect attempts.
+%%
+%% `Handler' is a callback, implemented by `Module:Function/2', which is
+%% used to instantiate an XML-RPC server. The `Timeout' value is used if the
+%% handler is keepalive-oriented. `State' is the initial state given to
+%% `Module:Function/2'. The resulting pid can be used as input to {@link
+%% xmlrpc:stop/1}.
+
 start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
     OptionList = [{active, false}, {reuseaddr, true}|ip(IP)],
     SessionHandler = {xmlrpc_http, handler, [Timeout, Handler, State]}, 
-    tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
+    xmlrpc_tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
 
 ip(all) -> [];
 ip(IP) when is_tuple(IP) -> [{ip, IP}].
 
 %% Exported: stop/1
 
-stop(Pid) -> tcp_serv:stop(Pid).
+-spec stop(Pid::pid()) -> ok.
+
+%% @doc Stops a running XML-RPC server.
+
+stop(Pid) -> xmlrpc_tcp_serv:stop(Pid).
 
 
 %%%
