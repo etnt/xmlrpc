@@ -1,4 +1,4 @@
-%% Copyright (C) 2003 Joakim Grebenö <jocke@gleipnir.com>.
+%% Copyright (C) 2003 Joakim Grebenö <jocke@tail-f.com>.
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -24,9 +24,12 @@
 %% NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 %% SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
--module(tcp_serv).
--vsn("1.13").
--author('jocke@gleipnir.com').
+%% @private
+%% @author jocke@tail-f.com
+%% @copyright 2003 Joakim Grebenö
+
+-module(xmlrpc_tcp_serv).
+
 -export([start_link/1, start_link/2, 
          start/1, start/2, 
          stop/1, stop/2]).
