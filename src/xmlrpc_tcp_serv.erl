@@ -30,10 +30,10 @@
 
 -module(xmlrpc_tcp_serv).
 
--export([start_link/1, start_link/2, 
+-export([start_link/1, start_link/2, start_link/3,
          start/1, start/2, 
          stop/1, stop/2]).
--export([init/2, start_session/3]).
+-export([init/3, start_session/3]).
 -export([system_continue/3, system_terminate/4]).
 
 -include("log.hrl").
@@ -62,22 +62,28 @@
 	  debug_info
 	 }).
 
+-define(DEFAULT_TIMEOUT, 6000).
+
 %% Exported: start_link/{1,2}
 
-start_link(Args) -> start_link(Args, 60000).
+start_link(Args) -> start_link(Args, ?DEFAULT_TIMEOUT).
     
-start_link(Args, Timeout) ->
-    Pid = proc_lib:spawn_link(?MODULE, init, [self(), Args]),
+start_link(Args, Timeout) -> start_link(Args, Timeout, undefined).
+
+start_link(Args, Timeout, Register) ->
+    Pid = proc_lib:spawn_link(?MODULE, init, [self(), Register, Args]),
     receive
 	{Pid, started} -> {ok, Pid};
 	{Pid, Reason} -> {error, Reason}
     after Timeout -> {error, timeout}
     end.
 
-start(Args) -> start(Args, 60000).
+start(Args) -> start(Args, ?DEFAULT_TIMEOUT).
     
-start(Args, Timeout) ->
-    Pid = proc_lib:spawn(?MODULE, init, [self(), Args]),
+start(Args, Timeout) -> start(undefined, Args, Timeout).
+
+start(Register, Args, Timeout) ->
+    Pid = proc_lib:spawn(?MODULE, init, [self(), Register, Args]),
     receive
 	{Pid, started} -> {ok, Pid};
 	{Pid, Reason} -> {error, Reason}
@@ -98,9 +104,13 @@ stop(Pid, Timeout) ->
 
 %% Exported: init/2
 
-init(Parent, [Port, MaxSessions, OptionList, SessionHandler]) ->
+init(Parent, Register, [Port, MaxSessions, OptionList, SessionHandler]) ->
     process_flag(trap_exit, true),
     ?dbg("~p init Port=~p, SessionHandler=~p~n", [self(),Port,SessionHandler]),
+    case Register of
+        undefined -> ok;
+        {local, Name} -> register(Name, self())
+    end,
     case gen_tcp:listen(Port, OptionList) of
 	{ok, ListenSocket} ->
             ?dbg("~p init Port=~p got ListenSocket~n", [self(),Port]),

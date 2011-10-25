@@ -36,7 +36,7 @@
 -module(xmlrpc).
 
 -export([call/3, call/4, call/5, call/6]).
--export([start_link/1, start_link/5, start_link/6, stop/1]).
+-export([start_link/1, start_link/5, start_link/6, start_link/7, stop/1]).
 
 -export([ssl_call/3, ssl_call/4, ssl_call/5, ssl_call/6]).
 
@@ -369,6 +369,8 @@ get_payload(Socket, Timeout, ContentLength) ->
     setopts(Socket, [{packet, raw}]),
     recv(Socket, ContentLength, Timeout).
 
+-define(TIMEOUT, 6000).
+
 %% Exported: start_link/{1,5,6}
 
 -spec start_link(Handler) -> {ok, pid()} | {error, Reason::term()}
@@ -377,7 +379,7 @@ get_payload(Socket, Timeout, ContentLength) ->
 %% @equiv start_link(4567, 1000, 60000, Handler, undefined)
 
 start_link(Handler) ->
-    start_link(4567, 1000, 60000, Handler, undefined).
+    start_link(4567, 1000, ?TIMEOUT, Handler, undefined).
 
 -spec start_link(Port, MaxSessions, Timeout, Handler, State) ->
           {ok, pid()} | {error, Reason::term()}
@@ -414,9 +416,13 @@ start_link(Port, MaxSessions, Timeout, Handler, State) ->
 %% xmlrpc:stop/1}.
 
 start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
+    start_link(undefined, IP, Port, MaxSessions, Timeout, Handler, State).
+
+start_link(Register, IP, Port, MaxSessions, Timeout, Handler, State) ->
     OptionList = [{active, false}, {reuseaddr, true}|ip(IP)],
     SessionHandler = {xmlrpc_http, handler, [Timeout, Handler, State]}, 
-    xmlrpc_tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
+    xmlrpc_tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler],
+                        ?TIMEOUT, Register).
 
 ip(all) -> [];
 ip(IP) when is_tuple(IP) -> [{ip, IP}].
