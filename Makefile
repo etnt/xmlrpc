@@ -1,18 +1,24 @@
-include vsn.mk
-
-.PHONY: all docs clean test release
+.PHONY:	all check test clean
 
 all:
-	(cd src;$(MAKE))
+	./rebar compile
 
 docs:
-	(cd src;$(MAKE) docs)
+	./rebar doc
+
+check:
+	./rebar check-plt
+	./rebar dialyze
+
+test:
+	./rebar eunit
+
+
+conf_clean:
+	@:
 
 clean:
-	(cd src;$(MAKE) clean)
-
-test: all
-	(cd test;$(MAKE))
+	./rebar clean
 
 release: all
 	rm -fr releases/xmlrpc-$(VSN)

@@ -1,7 +1,9 @@
-*~
-ebin/*.d
+/.eunit
+/ebin/*
 *.beam
+*~
+erl_crash.dump
+doc/*.css
 doc/*.html
 doc/*.png
-doc/*.css
 doc/edoc-info
