@@ -396,7 +396,7 @@ start_link(Port, MaxSessions, Timeout, Handler, State) ->
 
 -spec start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
           {ok, pid()} | {error, Reason::term()}
- when IP :: ip_address(),
+ when IP :: ip_address() | all,
       Port :: integer(),
       MaxSessions :: integer(),
       Timeout :: integer(),
