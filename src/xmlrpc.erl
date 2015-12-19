@@ -234,7 +234,7 @@ call(Socket, URI, Payload) ->
 
 -spec call(Socket, URI, Payload, KeepAlive, Timeout) -> call_result()
  when Socket :: socket(),
-      URI :: uri(),
+      URI :: uri() | {host(), uri()},
       Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]},
       KeepAlive :: boolean(),
       Timeout :: integer().
@@ -396,7 +396,7 @@ start_link(Port, MaxSessions, Timeout, Handler, State) ->
 
 -spec start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
           {ok, pid()} | {error, Reason::term()}
- when IP :: ip_address(),
+ when IP :: ip_address() | all,
       Port :: integer(),
       MaxSessions :: integer(),
       Timeout :: integer(),
