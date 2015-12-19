@@ -234,7 +234,7 @@ call(Socket, URI, Payload) ->
 
 -spec call(Socket, URI, Payload, KeepAlive, Timeout) -> call_result()
  when Socket :: socket(),
-      URI :: uri(),
+      URI :: uri() | {host(), uri()},
       Payload :: {call, Method::atom(), Arguments::[xmlrpc_value()]},
       KeepAlive :: boolean(),
       Timeout :: integer().
