@@ -1,3 +1,4 @@
+%% -*- coding: latin-1 -*-
 %% Copyright (C) 2003 Joakim Grebenö <jocke@tail-f.com>.
 %% All rights reserved.
 %%
