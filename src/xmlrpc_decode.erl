@@ -37,7 +37,7 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
-    case catch xmerl_scan:string(Payload) of
+    case catch xmerl_scan:string(binary_to_list(unicode:characters_to_binary(Payload))) of
 	{'EXIT', Reason} -> {error, Reason};
 	{E, _}  ->
 	    case catch decode_element(E) of
@@ -83,7 +83,7 @@ decode_element(E) -> {error, {bad_element, E}}.
 %% in order to be able to keep the error reporting in callback module for now.
 decode_method_name(L) when is_list(L) ->
     try list_to_existing_atom(L)
-    catch error:badarg -> L
+    catch error:badarg -> list_to_atom(L)
     end.
 
 match_element(NameList, Content) -> match_element(throw, NameList, Content).
