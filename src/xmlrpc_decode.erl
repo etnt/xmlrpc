@@ -83,7 +83,7 @@ decode_element(E) -> {error, {bad_element, E}}.
 %% in order to be able to keep the error reporting in callback module for now.
 decode_method_name(L) when is_list(L) ->
     try list_to_existing_atom(L)
-    catch error:badarg -> list_to_atom(L)
+    catch error:badarg -> L
     end.
 
 match_element(NameList, Content) -> match_element(throw, NameList, Content).
@@ -192,7 +192,7 @@ decode_members(Content) ->
 %% If the member name does not exist as an atom we keep it as a list
 decode_member_name(L) when is_list(L) ->
     try list_to_existing_atom(L)
-    catch error:badarg -> L
+    catch error:badarg -> list_to_atom(L)
     end.
 
 decode_values([]) -> [];
