@@ -1,5 +1,5 @@
 %% -*- coding: latin-1 -*-
-%% Copyright (C) 2003 Joakim Grebenö <jocke@tail-f.com>.
+%% Copyright (C) 2003 Joakim Greben <jocke@tail-f.com>.
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
@@ -27,11 +27,12 @@
 
 %% @private
 %% @author jocke@tail-f.com
-%% @copyright 2003 Joakim Grebenö
+%% @copyright 2003 Joakim Greben
 
 -module(xmlrpc_encode).
 
--export([payload/1]).
+-export([payload/1,
+         encode/1]).
 
 %% Exported: payload/1
 
@@ -109,6 +110,8 @@ encode({base64, Base64}) ->
 %	no -> {error, {bad_base64, Base64}}
 %    end;
     ["<base64>", Base64, "</base64>"];
+encode({cdata, CDATA}) ->
+    ["<string>", <<"<![CDATA[\n">>, CDATA,<<"\n]]> \n">> , "</string>"];
 encode(Value) ->
     case xmlrpc_util:is_string(Value) of
 	yes -> ["<string>", escape_string(Value), "</string>"];
